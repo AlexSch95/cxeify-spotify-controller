@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cxeify</title>
+    <style>
+        :root {
+            --accent-color: #1DB954;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .titlebar {
+            -webkit-app-region: drag;
+            background: rgba(0, 0, 0, 0.3);
+            height: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .titlebar-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .titlebar-controls {
+            -webkit-app-region: no-drag;
+            display: flex;
+            gap: 8px;
+        }
+
+        .titlebar-button {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            color: #ffffff;
+            font-size: 16px;
+        }
+
+        .titlebar-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .titlebar-button.close:hover {
+            background: #ff4444;
+        }
+
+        .content-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 20px 15px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+            color: var(--accent-color);
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            padding: 0 20px;
+            margin-top: 15px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab:hover {
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab.active {
+            color: var(--accent-color);
+            border-bottom-color: var(--accent-color);
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .tab-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .tab-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .tab-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .content-wrapper::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .content-wrapper::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .content-wrapper::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .content-wrapper::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .status-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.running {
+            background: var(--accent-color);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .status-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .info-text {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn-danger {
+            background: #ff4444;
+        }
+
+        .btn-danger:hover {
+            background: #ff6666;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--accent-color);
+        }
+
+        .link-box {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .link-box span {
+            font-size: 13px;
+            font-family: monospace;
+            color: var(--accent-color);
+        }
+
+        .link-box button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .setup-warning {
+            background: rgba(255, 196, 0, 0.1);
+            border: 1px solid rgba(255, 196, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .setup-warning p {
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .setup-step {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--accent-color);
+            backdrop-filter: blur(10px);
+        }
+
+        .setup-step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+
+        .setup-step-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .setup-step-content {
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.9;
+            margin-left: 42px;
+        }
+
+        .setup-step-content ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .setup-step-content li {
+            margin: 5px 0;
+        }
+
+        .setup-step-content code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: var(--accent-color);
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            margin-bottom: 30px;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            border-top: 2px solid rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        /* Toggle Switch Styles */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked+.toggle-slider {
+            background: var(--accent-color);
+        }
+
+        input:checked+.toggle-slider:before {
+            transform: translateX(26px);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="titlebar">
+        <div class="titlebar-title">
+            <span>🎵</span>
+            <span>Cxeify</span>
+        </div>
+        <div class="titlebar-controls">
+            <button class="titlebar-button" onclick="minimizeWindow()" title="Minimize">
+                <span>─</span>
+            </button>
+            <button class="titlebar-button close" onclick="closeWindow()" title="Close">
+                <span>×</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="content-wrapper">
+        <div class="header">
+            <h1>🎵 Cxeify</h1>
+            <p>Control Panel</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('setup')">📖 Setup Guide</button>
+            <button class="tab" onclick="switchTab('settings')">⚙️ Settings</button>
+        </div>
+
+        <!-- Setup Guide Tab -->
+        <div id="tab-setup" class="tab-content active">
+            <div class="setup-step">
+                <div class="setup-step-title">
+                    <span class="setup-step-number">1</span>
+                    <span>Create Spotify App</span>
+                </div>
+                <div class="setup-step-content">
+                    <p>Visit the Spotify Developer Dashboard and create a new application:</p>
+                    <ul>
+                        <li>Go to <code>https://developer.spotify.com/dashboard</code></li>
+                        <li>Log in with your Spotify account</li>
+                        <li>Click <strong>"Create app"</strong></li>
+                        <li>Fill in the form:
+                            <ul>
+                                <li><strong>App name:</strong> Cxeify (or any name you like)</li>
+                                <li><strong>App description:</strong> Personal Spotify Controller</li>
+                                <li><strong>Redirect URI:</strong> <code>http://localhost:3000/callback</code></li>
+                                <li><strong>APIs used:</strong> Select Web API</li>
+                            </ul>
+                        </li>
+                        <li>Agree to the terms and click <strong>"Save"</strong></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="setup-step">
+                <div class="setup-step-title">
+                    <span class="setup-step-number">2</span>
+                    <span>Get Your Credentials</span>
+                </div>
+                <div class="setup-step-content">
+                    <p>After creating your app, you'll need two things:</p>
+                    <ul>
+                        <li>Click on <strong>"Settings"</strong> in your newly created app</li>
+                        <li>Copy the <strong>Client ID</strong> (visible immediately)</li>
+                        <li>Click <strong>"View client secret"</strong> and copy it</li>
+                        <li>Keep these credentials safe - you'll need them in the next step</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="setup-step">
+                <div class="setup-step-title">
+                    <span class="setup-step-number">3</span>
+                    <span>Start the Server & Configure</span>
+                </div>
+                <div class="setup-step-content">
+                    <p>Now let's connect Cxeify to your Spotify account:</p>
+                    <ul>
+                        <li>Go to the <strong>Settings</strong> tab</li>
+                        <li>Click <strong>"Start Server"</strong></li>
+                        <li>Click <strong>"Open Setup"</strong> to open the configuration page</li>
+                        <li>Enter your <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+                        <li>Click <strong>"Save and Authenticate"</strong></li>
+                        <li>Log in with your Spotify account and authorize the app</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="setup-step">
+                <div class="setup-step-title">
+                    <span class="setup-step-number">4</span>
+                    <span>Add to iCUE</span>
+                </div>
+                <div class="setup-step-content">
+                    <p>Finally, add the player to your Corsair Xeneon Edge display:</p>
+                    <ul>
+                        <li>Open <strong>Corsair iCUE</strong> software</li>
+                        <li>Go to your <strong>Xeneon Edge</strong> device settings</li>
+                        <li>Add an <strong>iFrame widget</strong> to your display</li>
+                        <li>Copy the player URL from the <strong>Settings</strong> tab</li>
+                        <li>Paste it into the iFrame widget configuration</li>
+                        <li>Adjust size and position as desired</li>
+                    </ul>
+                    <p style="margin-top: 10px;">🎉 <strong>You're all set!</strong> Your Spotify controller should now
+                        be visible on your display.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="tab-settings" class="tab-content">
+            <div class="status-card">
+                <div class="section-title">🚀 Application Startup</div>
+
+                <div
+                    style="padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="font-size: 14px;">Autostart Application</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="app-autostart-toggle" onchange="toggleAppAutostart()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div
+                    style="padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 14px;">Start Minimized</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="start-minimized-toggle" onchange="toggleStartMinimized()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="status-card">
+                <div class="section-title">🖥️ Server Control</div>
+                <div class="status-indicator">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span class="status-text" id="status-text">Server stopped</span>
+                </div>
+                <p class="info-text" id="status-info">Start the server to continue</p>
+
+                <div class="button-group">
+                    <button class="btn-primary" id="start-btn" onclick="startServer()">Start Server</button>
+                    <button class="btn-danger" id="stop-btn" onclick="stopServer()" disabled>Stop Server</button>
+                </div>
+
+                <div
+                    style="margin-top: 15px; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 14px;">🚀 Autostart Server</span>
+                        <span style="font-size: 12px; opacity: 0.6;">Start server when app opens</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autostart-toggle" onchange="toggleAutostart()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div id="error-message"
+                    style="display: none; margin-top: 15px; padding: 12px; background: rgba(255, 68, 68, 0.1); border: 1px solid rgba(255, 68, 68, 0.3); border-radius: 8px; font-size: 13px; color: #ff6666;">
+                </div>
+            </div>
+
+            <div id="setup-warning" class="setup-warning" style="display: none; margin: 0 20px 20px 20px;">
+                <p><strong>⚠️ Spotify Setup Required!</strong></p>
+                <p id="setup-warning-text">Open setup to complete Spotify authentication.</p>
+                <button class="btn-primary" onclick="openSetup()" style="width: 100%;">Go to Setup</button>
+            </div>
+
+            <div class="status-card">
+                <div class="section-title">iCUE Integration</div>
+                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 12px;">
+                    Copy this code and paste it into your Corsair Xeneon Edge iFrame widget:
+                </p>
+                <div style="position: relative;">
+                    <textarea id="iframe-code" readonly style="
+                width: 100%;
+                height: 80px;
+                background: rgba(0, 0, 0, 0.3);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 8px;
+                color: var(--accent-color);
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                padding: 12px;
+                resize: none;
+                margin-bottom: 10px;
+            "><iframe 
+    src="http://127.0.0.1:3000/player.html" 
+></iframe></textarea>
+                    <button class="btn-primary" onclick="copyIframeCode()" style="width: 100%;">
+                        📋 Copy iFrame Code
+                    </button>
+                </div>
+            </div>
+
+            <div class="status-card">
+                <div class="section-title">Information</div>
+                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8;">
+                    This app runs in the background and provides the Spotify Controller.
+                    You can close this window - the app continues running in the System Tray.
+                    <br><br>
+                    <strong>Usage:</strong><br>
+                    1. Start the server<br>
+                    2. Complete setup (one-time)<br>
+                    3. Use player URL in iCUE/Browser
+                </p>
+            </div>
+
+            <div class="status-card">
+                <div class="section-title">🎨 Appearance</div>
+                <div
+                    style="padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 14px;">Accent Color</span>
+                        <span style="font-size: 12px; opacity: 0.6;">Customize the app's accent color</span>
+                    </div>
+                    <input type="color" id="accent-color-picker" onchange="changeAccentColor()"
+                        style="width: 50px; height: 30px; border: none; border-radius: 6px; cursor: pointer; background: none;">
+                </div>
+                <p style="font-size: 12px; line-height: 1.5; opacity: 0.7; margin-top: 10px; margin-bottom: 0;">
+                    💡 <strong>Note:</strong> After changing the color, refresh the widget in iCUE to see the changes in
+                    the
+                    player.
+                </p>
+            </div>
+
+            <div class="status-card">
+                <div class="section-title">⚠️ Troubleshooting</div>
+                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 12px;">
+                    If something went wrong during setup or authorization, you can reset the token and start over.<br>
+                    <strong>Note:</strong> The server must be running to reset the token.
+                </p>
+                <button class="btn-danger" onclick="resetToken()" style="width: 100%;">
+                    🔄 Reset Token & Restart Setup
+                </button>
+            </div>
+
+            <div class="footer">
+                Cxeify v1.0 · Made by Machinezr (Discord: machine666)
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById('tab-' + tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        let serverRunning = false;
+
+        // Window controls
+        async function minimizeWindow() {
+            await ipcRenderer.invoke('window-minimize');
+        }
+
+        async function closeWindow() {
+            await ipcRenderer.invoke('window-close');
+        }
+
+        async function loadSettings() {
+            const settings = await ipcRenderer.invoke('get-settings');
+            document.getElementById('autostart-toggle').checked = settings.autostart;
+            document.getElementById('app-autostart-toggle').checked = settings.appAutostart || false;
+            document.getElementById('start-minimized-toggle').checked = settings.startMinimized || false;
+
+            // Load accent color
+            const accentColor = settings.accentColor || '#1DB954';
+            document.getElementById('accent-color-picker').value = accentColor;
+            applyAccentColor(accentColor);
+        }
+
+        async function toggleAutostart() {
+            const settings = await ipcRenderer.invoke('get-settings');
+            settings.autostart = document.getElementById('autostart-toggle').checked;
+            await ipcRenderer.invoke('save-settings', settings);
+        }
+
+        async function toggleAppAutostart() {
+            const settings = await ipcRenderer.invoke('get-settings');
+            settings.appAutostart = document.getElementById('app-autostart-toggle').checked;
+            await ipcRenderer.invoke('save-settings', settings);
+
+            // Call electron main to set/unset autostart
+            await ipcRenderer.invoke('set-app-autostart', settings.appAutostart);
+        }
+
+        async function toggleStartMinimized() {
+            const settings = await ipcRenderer.invoke('get-settings');
+            settings.startMinimized = document.getElementById('start-minimized-toggle').checked;
+            await ipcRenderer.invoke('save-settings', settings);
+        }
+
+        async function changeAccentColor() {
+            const color = document.getElementById('accent-color-picker').value;
+            const settings = await ipcRenderer.invoke('get-settings');
+            settings.accentColor = color;
+            await ipcRenderer.invoke('save-settings', settings);
+            applyAccentColor(color);
+        }
+
+        function applyAccentColor(color) {
+            // Update CSS variable - this automatically updates all elements using var(--accent-color)
+            document.documentElement.style.setProperty('--accent-color', color);
+        }
+
+        async function updateStatus() {
+            const status = await ipcRenderer.invoke('get-server-status');
+            serverRunning = status.running;
+
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            const statusInfo = document.getElementById('status-info');
+            const startBtn = document.getElementById('start-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            const setupWarning = document.getElementById('setup-warning');
+
+            if (status.running) {
+                statusDot.classList.add('running');
+                statusText.textContent = 'Server running';
+                statusInfo.textContent = `Port ${status.port} · http://127.0.0.1:${status.port}`;
+                startBtn.disabled = true;
+                startBtn.textContent = 'Start Server';
+                stopBtn.disabled = false;
+            } else {
+                statusDot.classList.remove('running');
+                statusText.textContent = 'Server stopped';
+                statusInfo.textContent = 'Start the server to continue';
+                startBtn.disabled = false;
+                startBtn.textContent = 'Start Server';
+                stopBtn.disabled = true;
+            }
+
+            // Show setup warning if credentials or token missing
+            if (status.running && (!status.hasCredentials || !status.hasToken)) {
+                setupWarning.style.display = 'block';
+                const warningText = document.getElementById('setup-warning-text');
+                if (!status.hasCredentials) {
+                    warningText.textContent = 'Please configure your Spotify API credentials in setup first.';
+                } else {
+                    warningText.textContent = 'Open setup to authorize with Spotify.';
+                }
+            } else {
+                setupWarning.style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 10000);
+        }
+
+        async function startServer() {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.style.display = 'none';
+
+            const startBtn = document.getElementById('start-btn');
+            startBtn.disabled = true;
+            startBtn.textContent = 'Starting...';
+
+            try {
+                const result = await ipcRenderer.invoke('start-server');
+                console.log(result.message);
+                if (!result.success) {
+                    showError(result.message);
+                    startBtn.disabled = false;
+                    startBtn.textContent = 'Start Server';
+                }
+            } catch (error) {
+                showError(error.message || 'Failed to start server');
+                startBtn.disabled = false;
+                startBtn.textContent = 'Start Server';
+            }
+
+            await updateStatus();
+        }
+
+        async function stopServer() {
+            const result = await ipcRenderer.invoke('stop-server');
+            console.log(result.message);
+            if (!result.success) {
+                showError(result.message);
+            }
+            await updateStatus();
+        }
+
+        function openSetup() {
+            ipcRenderer.invoke('open-setup');
+        }
+
+        function openPlayer() {
+            ipcRenderer.invoke('open-player');
+        }
+
+        function copyIframeCode() {
+            const textarea = document.getElementById('iframe-code');
+            textarea.select();
+            textarea.setSelectionRange(0, 99999); // For mobile devices
+
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                // Visual feedback
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                btn.style.background = 'linear-gradient(135deg, #1DB954, #1ed760)';
+
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            }).catch(err => {
+                showError('Failed to copy: ' + err.message);
+            });
+        }
+
+        async function resetToken() {
+            if (!confirm('Are you sure you want to reset the token? You will need to complete the setup again.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('http://127.0.0.1:3000/api/reset-token', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('✓ Token reset successfully! Please complete the setup again.');
+                    await updateStatus();
+                } else {
+                    showError(result.error || 'Failed to reset token');
+                }
+            } catch (error) {
+                showError('Error resetting token: ' + error.message);
+            }
+        }
+
+        // Initial setup
+        updateStatus();
+        loadSettings();
+
+        // Listen for server status updates
+        ipcRenderer.on('server-status', (event, status) => {
+            updateStatus();
+        });
+
+        // Auto-refresh status every 3 seconds
+        setInterval(updateStatus, 3000);
+    </script>
+</body>
+
+</html>

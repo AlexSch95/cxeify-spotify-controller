@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cxeify Setup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #1DB954;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.8;
+        }
+
+        .step-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 32px;
+            height: 32px;
+            background: #1DB954;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 32px;
+            font-weight: bold;
+            margin-right: 12px;
+        }
+
+        .step-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .step-content {
+            margin-left: 44px;
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        .code-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #1DB954;
+            word-break: break-all;
+        }
+
+        .info-box {
+            background: rgba(29, 185, 84, 0.1);
+            border: 1px solid rgba(29, 185, 84, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+
+        .warning-box {
+            background: rgba(255, 196, 0, 0.1);
+            border: 1px solid rgba(255, 196, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1DB954;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #1DB954;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #1DB954;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: #1ed760;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(29, 185, 84, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .link-button {
+            display: inline-block;
+            padding: 8px 16px;
+            background: rgba(29, 185, 84, 0.2);
+            border: 1px solid #1DB954;
+            border-radius: 6px;
+            color: #1DB954;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .link-button:hover {
+            background: rgba(29, 185, 84, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .success-message {
+            background: rgba(29, 185, 84, 0.2);
+            border: 1px solid #1DB954;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .error-message {
+            background: rgba(255, 68, 68, 0.2);
+            border: 1px solid #ff4444;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #ff6666;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        ol {
+            margin-left: 20px;
+        }
+
+        ol li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Cxeify</h1>
+            <p>API Setup - Create Your Own Spotify App</p>
+        </div>
+
+        <div class="step-card">
+            <div class="step-title">
+                <span class="step-number">1</span>
+                Open Spotify Developer Dashboard
+            </div>
+            <div class="step-content">
+                <p>Go to the Spotify Developer Dashboard and sign in with your Spotify account:</p>
+                <a href="https://developer.spotify.com/dashboard" target="_blank" class="link-button">
+                    → Open Spotify Dashboard
+                </a>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="step-title">
+                <span class="step-number">2</span>
+                Create New App
+            </div>
+            <div class="step-content">
+                <ol>
+                    <li>Click "<strong>Create app</strong>"</li>
+                    <li>App Name: <code>Cxeify</code> (or any name)</li>
+                    <li>App Description: <code>Local Spotify Controller</code></li>
+                    <li>Redirect URI: <span class="code-box">http://127.0.0.1:3000/callback</span></li>
+                    <li>Website: Leave empty (optional)</li>
+                    <li>Select: "<strong>Web API</strong>"</li>
+                    <li>Accept the Terms of Service</li>
+                    <li>Click "<strong>Save</strong>"</li>
+                </ol>
+                <div class="info-box">
+                    💡 <strong>Important:</strong> The Redirect URI must be exactly
+                    <code>http://127.0.0.1:3000/callback</code>!
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="step-title">
+                <span class="step-number">3</span>
+                Copy API Credentials
+            </div>
+            <div class="step-content">
+                <ol>
+                    <li>In your newly created app, click "<strong>Settings</strong>"</li>
+                    <li>Copy the <strong>Client ID</strong></li>
+                    <li>Click "<strong>View client secret</strong>" and copy the <strong>Client Secret</strong></li>
+                </ol>
+                <div class="warning-box">
+                    ⚠️ <strong>Important:</strong> The Client Secret is confidential! Never share it publicly.
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="step-title">
+                <span class="step-number">4</span>
+                Enter Credentials (Session Only)
+            </div>
+            <div class="step-content">
+                <div class="info-box"
+                    style="margin-bottom: 20px; background: rgba(29, 185, 84, 0.1); border-color: rgba(29, 185, 84, 0.3);">
+                    <strong>🔒 Security Note:</strong><br>
+                    Your credentials are <strong>saved locally</strong> in your AppData folder. They are required for
+                    automatic token refresh.
+                    Your credentials never leave your computer.
+                </div>
+
+                <form id="credentials-form">
+                    <div class="form-group">
+                        <label for="client-id">Client ID</label>
+                        <input type="text" id="client-id" placeholder="e.g. 0e23d0d48ae04af0b1a69ffb0be95b21" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="client-secret">Client Secret</label>
+                        <input type="password" id="client-secret" placeholder="Your Client Secret" required>
+                    </div>
+
+                    <button type="submit" id="save-btn">Continue to Spotify Authorization</button>
+                </form>
+
+                <div id="success-message" class="success-message hidden">
+                    ✓ Credentials set! Redirecting to Spotify authorization...
+                </div>
+
+                <div id="error-message" class="error-message hidden"></div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="info-box">
+                <strong>ℹ️ What happens next:</strong><br>
+                You'll be redirected to Spotify to authorize the app. After authorization, your <strong>access token
+                    will be saved</strong> and automatically refreshed when needed. You only need to do this setup once!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('credentials-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const clientId = document.getElementById('client-id').value.trim();
+            const clientSecret = document.getElementById('client-secret').value.trim();
+            const saveBtn = document.getElementById('save-btn');
+            const errorMsg = document.getElementById('error-message');
+            const successMsg = document.getElementById('success-message');
+
+            // Validierung
+            if (!clientId || !clientSecret) {
+                errorMsg.textContent = 'Bitte fülle beide Felder aus!';
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            if (clientId.length < 30 || clientSecret.length < 30) {
+                errorMsg.textContent = 'Die eingegebenen Credentials scheinen ungültig zu sein (zu kurz).';
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            errorMsg.classList.add('hidden');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Speichere...';
+
+            try {
+                const response = await fetch('/api/save-credentials', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ clientId, clientSecret })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    successMsg.classList.remove('hidden');
+                    setTimeout(() => {
+                        window.location.href = '/auth/start';
+                    }, 1500);
+                } else {
+                    throw new Error(result.error || 'Error setting credentials');
+                }
+            } catch (error) {
+                errorMsg.textContent = `Error: ${error.message}`;
+                errorMsg.classList.remove('hidden');
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Continue to Spotify Authorization';
+            }
+        });
+    </script>
+</body>
+
+</html>

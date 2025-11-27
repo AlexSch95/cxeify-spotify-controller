@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cxeify</title>
+    <style>
+        :root {
+            --accent-color: #1DB954;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: #ffffff;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            position: relative;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Album Art als Hintergrund */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: brightness(0.4) blur(8px);
+            transform: scale(1.1);
+            z-index: -2;
+            transition: background-image 0.5s ease;
+        }
+
+        /* Vignette Overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
+            z-index: -1;
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        #player-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4vh;
+            width: 100%;
+            max-width: 90vw;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3vh;
+            width: 100%;
+        }
+
+        .track-info {
+            text-align: center;
+            width: 100%;
+            max-width: 80vw;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+        }
+
+        .track-info h2 {
+            font-size: clamp(2.5rem, 6vw, 5rem);
+            margin-bottom: 1vh;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .track-info p {
+            font-size: clamp(1.8rem, 4vw, 3rem);
+            opacity: 0.85;
+            margin-bottom: 0;
+        }
+
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 2vw;
+            width: 100%;
+            max-width: 70vw;
+        }
+
+        .progress-container span {
+            font-size: clamp(1.2rem, 2.5vw, 2rem);
+            opacity: 0.8;
+            min-width: 5vw;
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: clamp(14px, 2.5vh, 24px);
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 1.5vh;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: visible;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-color);
+            border-radius: 1.5vh;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 10px var(--accent-color);
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translate(50%, -50%);
+            width: clamp(16px, 3vh, 28px);
+            height: clamp(16px, 3vh, 28px);
+            background: var(--accent-color);
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            transition: transform 0.2s ease;
+        }
+
+        .progress-bar:hover .progress-fill::after,
+        .progress-bar:active .progress-fill::after {
+            transform: translate(50%, -50%) scale(1.2);
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3vw;
+        }
+
+        .control-btn {
+            width: clamp(70px, 10vw, 120px);
+            height: clamp(70px, 10vw, 120px);
+            border: none;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.1);
+        }
+
+        .control-btn svg {
+            width: clamp(35px, 5vw, 60px);
+            height: clamp(35px, 5vw, 60px);
+        }
+
+        .control-btn-small {
+            width: clamp(50px, 7vw, 80px);
+            height: clamp(50px, 7vw, 80px);
+        }
+
+        .control-btn-small svg {
+            width: clamp(25px, 3.5vw, 40px);
+            height: clamp(25px, 3.5vw, 40px);
+        }
+
+        .control-btn.active svg {
+            fill: var(--accent-color) !important;
+        }
+
+        .repeat-one-indicator {
+            position: absolute;
+            font-size: clamp(10px, 1.5vw, 14px);
+            font-weight: bold;
+            bottom: clamp(12px, 2vw, 18px);
+        }
+
+        .control-btn-large {
+            width: clamp(90px, 13vw, 150px) !important;
+            height: clamp(90px, 13vw, 150px) !important;
+            background: var(--accent-color) !important;
+        }
+
+        .control-btn-large:hover {
+            filter: brightness(1.1);
+        }
+
+        .control-btn-large svg {
+            width: clamp(45px, 6.5vw, 75px) !important;
+            height: clamp(45px, 6.5vw, 75px) !important;
+        }
+
+        .volume-container {
+            display: flex;
+            align-items: center;
+            gap: 2vw;
+            width: 100%;
+            max-width: 50vw;
+            padding: 2vh 0;
+        }
+
+        .volume-icon {
+            width: clamp(30px, 4vw, 50px);
+            height: clamp(30px, 4vw, 50px);
+            opacity: 0.8;
+            flex-shrink: 0;
+        }
+
+        .volume-slider {
+            flex: 1;
+            height: clamp(12px, 2vh, 20px);
+            border-radius: 1vh;
+            background: rgba(255, 255, 255, 0.25);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+            touch-action: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .volume-slider::-webkit-slider-runnable-track {
+            height: 100%;
+            border-radius: 1vh;
+        }
+
+        .volume-slider::-moz-range-track {
+            height: 100%;
+            border-radius: 1vh;
+            background: transparent;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: clamp(30px, 4vw, 50px);
+            height: clamp(30px, 4vw, 50px);
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            transition: all 0.2s ease;
+            margin-top: calc((clamp(12px, 2vh, 20px) - clamp(30px, 4vw, 50px)) / 2);
+        }
+
+        .volume-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: clamp(30px, 4vw, 50px);
+            height: clamp(30px, 4vw, 50px);
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .setup-message {
+            background: rgba(255, 196, 0, 0.2);
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-top: 2rem;
+        }
+
+        .setup-message a {
+            color: #1ed760;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .error-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .error-content {
+            text-align: center;
+            padding: 3rem;
+            max-width: 80vw;
+        }
+
+        .error-icon {
+            font-size: clamp(3rem, 8vw, 5rem);
+            margin-bottom: 1.5rem;
+        }
+
+        .error-title {
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #ff6b6b;
+        }
+
+        .error-message {
+            font-size: clamp(1rem, 2.5vw, 1.3rem);
+            opacity: 0.8;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .error-button {
+            padding: clamp(12px, 2vh, 16px) clamp(30px, 5vw, 50px);
+            font-size: clamp(14px, 2.5vw, 18px);
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(29, 185, 84, 0.4);
+        }
+
+        .error-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(29, 185, 84, 0.6);
+        }
+
+        .error-button:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div id="setup-screen" style="text-align: center;">
+            <h1>🎵</h1>
+            <p>Cxeify</p>
+            <div class="setup-message">
+                <p>⚠️ Setup erforderlich!</p>
+                <p>Öffne im Browser:</p>
+                <p><a href="http://127.0.0.1:3000/setup">http://127.0.0.1:3000/setup</a></p>
+            </div>
+        </div>
+
+        <div id="player-screen" class="hidden">
+            <img id="album-image" src="" alt="Album Cover" style="display: none;">
+            <div class="main-content">
+                <div class="track-info">
+                    <h2 id="track-name">Kein Track</h2>
+                    <p id="artist-name">Kein Künstler</p>
+                </div>
+                <div class="progress-container">
+                    <span id="current-time">0:00</span>
+                    <div class="progress-bar" id="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                    <span id="duration">0:00</span>
+                </div>
+                <div class="controls">
+                    <button id="shuffle-btn" class="control-btn control-btn-small" title="Shuffle">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" />
+                        </svg>
+                    </button>
+                    <button id="prev-btn" class="control-btn">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+                        </svg>
+                    </button>
+                    <button id="play-pause-btn" class="control-btn control-btn-large">
+                        <svg id="play-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z" />
+                        </svg>
+                        <svg id="pause-icon" class="hidden" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                        </svg>
+                    </button>
+                    <button id="next-btn" class="control-btn">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+                        </svg>
+                    </button>
+                    <button id="repeat-btn" class="control-btn control-btn-small" title="Repeat Off">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
+                        </svg>
+                        <span id="repeat-one" class="repeat-one-indicator hidden">1</span>
+                    </button>
+                </div>
+                <div class="volume-container">
+                    <svg class="volume-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                    </svg>
+                    <input type="range" id="volume-slider" min="0" max="100" value="50" class="volume-slider">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPlaybackState = null;
+        let isAdjustingVolume = false;
+        let isSeeking = false;
+        let volumeDebounceTimer = null;
+        let lastSetVolume = null;
+        let errorState = { hasError: false, retryCount: 0 };
+
+        // desc: Load custom accent color from server settings
+        async function loadAccentColor() {
+            try {
+                const response = await fetch('/api/accent-color');
+                const data = await response.json();
+                if (data.accentColor) {
+                    document.documentElement.style.setProperty('--accent-color', data.accentColor);
+                }
+            } catch (error) {
+                console.error('Error loading accent color:', error);
+            }
+        }
+
+        // desc: Show error overlay with retry option
+        function showErrorOverlay() {
+            const existing = document.querySelector('.error-overlay');
+            if (existing) return;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'error-overlay';
+            overlay.innerHTML = `
+                <div class="error-content">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-title">Connection Lost</div>
+                    <div class="error-message">
+                        Cannot reach Cxeify.<br>
+                        Please check if the server is running.
+                    </div>
+                    <button class="error-button" onclick="handleRetry()">Retry Connection</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        // desc: Hide error overlay when connection restored
+        function hideErrorOverlay() {
+            const overlay = document.querySelector('.error-overlay');
+            if (overlay) {
+                overlay.style.animation = 'fadeOut 0.3s ease';
+                setTimeout(() => overlay.remove(), 300);
+            }
+        }
+
+        // desc: Handle retry button click
+        function handleRetry() {
+            errorState.retryCount = 0;
+            hideErrorOverlay();
+            updatePlayback();
+        }
+
+        // desc: Handle playback errors with retry logic
+        function handlePlaybackError(error) {
+            console.error('Playback error:', error);
+            errorState.hasError = true;
+            errorState.retryCount++;
+
+            if (errorState.retryCount < 3) {
+                setTimeout(updatePlayback, 2000);
+            } else {
+                showErrorOverlay();
+            }
+        }
+
+        const setupScreen = document.getElementById('setup-screen');
+        const playerScreen = document.getElementById('player-screen');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const shuffleBtn = document.getElementById('shuffle-btn');
+        const repeatBtn = document.getElementById('repeat-btn');
+        const repeatOneIndicator = document.getElementById('repeat-one');
+        const volumeSlider = document.getElementById('volume-slider');
+        const progressBar = document.getElementById('progress-bar');
+        const albumImage = document.getElementById('album-image');
+        const trackName = document.getElementById('track-name');
+        const artistName = document.getElementById('artist-name');
+        const currentTime = document.getElementById('current-time');
+        const duration = document.getElementById('duration');
+        const progressFill = document.getElementById('progress-fill');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+
+        // desc: Update player UI with current Spotify playback state
+        async function updatePlayback() {
+            try {
+                const response = await fetch('/api/current');
+
+                if (!response.ok) {
+                    throw new Error(`API returned ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (errorState.hasError) {
+                    hideErrorOverlay();
+                    errorState = { hasError: false, retryCount: 0 };
+                }
+
+                if (data.error === 'not_authenticated') {
+                    setupScreen.classList.remove('hidden');
+                    playerScreen.classList.add('hidden');
+                    return;
+                }
+
+                setupScreen.classList.add('hidden');
+                playerScreen.classList.remove('hidden');
+
+                if (!data.item) {
+                    trackName.textContent = 'Keine Wiedergabe';
+                    artistName.textContent = 'Start Spotify on a device';
+                    albumImage.src = '';
+                    return;
+                }
+
+                currentPlaybackState = data;
+
+                trackName.textContent = data.item.name;
+                artistName.textContent = data.item.artists.map(a => a.name).join(', ');
+
+                // Album Art als Hintergrund setzen
+                const albumArtUrl = data.item.album.images[0]?.url || '';
+                albumImage.src = albumArtUrl;
+                if (albumArtUrl) {
+                    document.body.style.setProperty('--album-bg', `url(${albumArtUrl})`);
+                    document.querySelector('body::before') || (document.body.style.backgroundImage = `url(${albumArtUrl})`);
+                    // Direkt auf body::before zugreifen ist nicht möglich, daher setzen wir es über style
+                    const styleSheet = document.styleSheets[0];
+                    // Finde bestehende before-Regel und aktualisiere sie
+                    for (let i = 0; i < styleSheet.cssRules.length; i++) {
+                        if (styleSheet.cssRules[i].selectorText === 'body::before') {
+                            styleSheet.cssRules[i].style.backgroundImage = `url(${albumArtUrl})`;
+                            break;
+                        }
+                    }
+                }
+
+                if (data.is_playing) {
+                    playIcon.classList.add('hidden');
+                    pauseIcon.classList.remove('hidden');
+                } else {
+                    playIcon.classList.remove('hidden');
+                    pauseIcon.classList.add('hidden');
+                }
+
+                currentTime.textContent = formatTime(data.progress_ms);
+                duration.textContent = formatTime(data.item.duration_ms);
+
+                if (!isSeeking) {
+                    const percentage = (data.progress_ms / data.item.duration_ms) * 100;
+                    progressFill.style.width = percentage + '%';
+                }
+
+                if (!isAdjustingVolume && lastSetVolume === null) {
+                    const volume = data.device?.volume_percent || 50;
+                    volumeSlider.value = volume;
+                    updateVolumeSliderFill(volume);
+                }
+
+                if (data.shuffle_state !== undefined) {
+                    if (data.shuffle_state) {
+                        shuffleBtn.classList.add('active');
+                    } else {
+                        shuffleBtn.classList.remove('active');
+                    }
+                }
+
+                if (data.repeat_state !== undefined) {
+                    if (data.repeat_state === 'off') {
+                        repeatBtn.classList.remove('active');
+                        repeatOneIndicator.classList.add('hidden');
+                        repeatBtn.title = 'Repeat Off';
+                    } else if (data.repeat_state === 'context') {
+                        repeatBtn.classList.add('active');
+                        repeatOneIndicator.classList.add('hidden');
+                        repeatBtn.title = 'Repeat All';
+                    } else if (data.repeat_state === 'track') {
+                        repeatBtn.classList.add('active');
+                        repeatOneIndicator.classList.remove('hidden');
+                        repeatBtn.title = 'Repeat One';
+                    }
+                }
+            } catch (error) {
+                handlePlaybackError(error);
+            }
+        }
+
+        playPauseBtn.addEventListener('click', async () => {
+            if (!currentPlaybackState) return;
+            await fetch('/api/play-pause', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playing: currentPlaybackState.is_playing })
+            });
+            setTimeout(updatePlayback, 300);
+        });
+
+        prevBtn.addEventListener('click', async () => {
+            await fetch('/api/previous', { method: 'POST' });
+            setTimeout(updatePlayback, 500);
+        });
+
+        nextBtn.addEventListener('click', async () => {
+            await fetch('/api/next', { method: 'POST' });
+            setTimeout(updatePlayback, 500);
+        });
+
+        shuffleBtn.addEventListener('click', async () => {
+            if (!currentPlaybackState) return;
+            const currentState = currentPlaybackState.shuffle_state;
+            const newState = !currentState;
+
+            await fetch('/api/shuffle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: newState })
+            });
+
+            setTimeout(updatePlayback, 300);
+        });
+
+        repeatBtn.addEventListener('click', async () => {
+            if (!currentPlaybackState) return;
+            const current = currentPlaybackState.repeat_state || 'off';
+            let newState = 'off';
+
+            if (current === 'off') {
+                newState = 'context';
+            } else if (current === 'context') {
+                newState = 'track';
+            } else {
+                newState = 'off';
+            }
+
+            await fetch('/api/repeat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: newState })
+            });
+
+            setTimeout(updatePlayback, 300);
+        });
+
+        // desc: Progress bar drag/touch handlers for seeking
+        let isDraggingProgress = false;
+        let seekDebounceTimer = null;
+
+        async function performSeek(clientX) {
+            if (!currentPlaybackState) return;
+
+            const rect = progressBar.getBoundingClientRect();
+            const percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            const position = Math.floor(currentPlaybackState.item.duration_ms * percentage);
+
+            clearTimeout(seekDebounceTimer);
+            seekDebounceTimer = setTimeout(async () => {
+                await fetch('/api/seek', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ position })
+                });
+                setTimeout(() => {
+                    isSeeking = false;
+                }, 300);
+            }, 100);
+        }
+
+        progressBar.addEventListener('mousedown', (e) => {
+            isDraggingProgress = true;
+            isSeeking = true;
+            performSeek(e.clientX);
+        });
+
+        progressBar.addEventListener('touchstart', (e) => {
+            isDraggingProgress = true;
+            isSeeking = true;
+            performSeek(e.touches[0].clientX);
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDraggingProgress) {
+                performSeek(e.clientX);
+            }
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (isDraggingProgress) {
+                performSeek(e.touches[0].clientX);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDraggingProgress) {
+                isDraggingProgress = false;
+            }
+        });
+
+        document.addEventListener('touchend', () => {
+            if (isDraggingProgress) {
+                isDraggingProgress = false;
+            }
+        });
+
+        volumeSlider.addEventListener('mousedown', () => {
+            isAdjustingVolume = true;
+        });
+
+        volumeSlider.addEventListener('touchstart', () => {
+            isAdjustingVolume = true;
+        });
+
+        volumeSlider.addEventListener('mouseup', () => {
+            setTimeout(() => {
+                isAdjustingVolume = false;
+            }, 2000);
+        });
+
+        volumeSlider.addEventListener('touchend', () => {
+            setTimeout(() => {
+                isAdjustingVolume = false;
+            }, 2000);
+        });
+
+        volumeSlider.addEventListener('input', (e) => {
+            const newVolume = parseInt(e.target.value);
+            lastSetVolume = newVolume;
+            updateVolumeSliderFill(newVolume);
+
+            // Debounce: nur alle 200ms die Lautstärke senden
+            clearTimeout(volumeDebounceTimer);
+            volumeDebounceTimer = setTimeout(async () => {
+                await fetch('/api/volume', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ volume: newVolume })
+                });
+            }, 200);
+        });
+
+        // desc: Update volume slider fill based on current volume
+        function updateVolumeSliderFill(volume) {
+            const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim();
+            const percentage = volume;
+            volumeSlider.style.background = `linear-gradient(to right, ${accentColor} 0%, ${accentColor} ${percentage}%, rgba(255, 255, 255, 0.25) ${percentage}%, rgba(255, 255, 255, 0.25) 100%)`;
+        }
+
+        function formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Initialize
+        loadAccentColor();
+        updatePlayback();
+        setInterval(updatePlayback, 1000);
+        updateVolumeSliderFill(50);
+    </script>
+</body>
+
+</html>
