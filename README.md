@@ -132,11 +132,6 @@ The installer will be created in the `dist/` folder.
 - Custom scrollbar styling matching the accent color
 - Graceful handling of inaccessible Spotify-generated playlists
 
-**API Endpoints**:
-- `/api/context` - Fetches current playlist/album information
-- `/api/context/:contextId/tracks` - Loads tracks with pagination support
-- `/api/play-track` - Plays a specific track from the current context
-
 ## Credits
 
 Made by Machinezr (Discord: machine666)
