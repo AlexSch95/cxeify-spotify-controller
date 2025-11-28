@@ -1,60 +1,34 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, shell, nativeImage } = require('electron');
 const path = require('path');
-const fs = require('fs');
 const SpotifyServer = require('./server-wrapper');
+const storage = require('./secure-storage');
 
 let mainWindow = null;
 let tray = null;
 let spotifyServer = null;
 
 const PORT = 3000;
-const getTokenFilePath = () => path.join(app.getPath('userData'), 'data', '.spotify-token.json');
-const getSettingsFilePath = () => path.join(app.getPath('userData'), 'settings.json');
 
-// desc: Load user settings from disk with defaults
+// desc: Load user settings from electron-store
 function loadSettings() {
-    try {
-        const settingsPath = getSettingsFilePath();
-        if (fs.existsSync(settingsPath)) {
-            return JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-        }
-    } catch (error) {
-        console.error('Error loading settings:', error);
-    }
-    return {
-        autostart: true,
-        accentColor: '#1DB954'
-    };
+    return storage.settings.getAll();
 }
 
-// desc: Persist user settings to disk
+// desc: Persist user settings to electron-store
 function saveSettings(settings) {
-    try {
-        const settingsPath = getSettingsFilePath();
-        const dir = path.dirname(settingsPath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-        console.log('Settings saved');
-    } catch (error) {
-        console.error('Error saving settings:', error);
-    }
+    storage.settings.setAll(settings);
+    console.log('Settings saved');
 }
 
 // desc: Start the Express server as child process
 async function startServer() {
     if (!spotifyServer) {
-        const userDataPath = path.join(app.getPath('userData'), 'data');
-        if (!fs.existsSync(userDataPath)) {
-            fs.mkdirSync(userDataPath, { recursive: true });
-        }
-        const settingsPath = getSettingsFilePath();
-        spotifyServer = new SpotifyServer(userDataPath, settingsPath);
+        const userDataPath = app.getPath('userData');
+        spotifyServer = new SpotifyServer(userDataPath, userDataPath);
     }
 
     if (spotifyServer.getStatus().running) {
-        return { success: false, message: 'Server läuft bereits' };
+        return { success: false, message: 'Server is already running' };
     }
 
     try {
@@ -66,9 +40,13 @@ async function startServer() {
         }
 
         updateTrayMenu(true);
-        return { success: true, message: `Server gestartet auf Port ${PORT}` };
+        return { success: true, message: `Server started on port ${PORT}` };
     } catch (error) {
         console.error('Server start error:', error);
+        // Check if error is due to port already in use
+        if (error.message && (error.message.includes('EADDRINUSE') || error.message.includes('port') || error.message.includes('listen'))) {
+            return { success: false, message: `Port ${PORT} is already in use. Please kill running server instances via "Troubleshooting".` };
+        }
         return { success: false, message: error.message };
     }
 }
@@ -88,7 +66,7 @@ async function stopServer() {
         }
 
         updateTrayMenu(false);
-        return { success: true, message: 'Server gestoppt' };
+        return { success: true, message: 'Server stopped' };
     } catch (error) {
         console.error('Server stop error:', error);
         return { success: false, message: error.message };
@@ -105,8 +83,9 @@ function createWindow() {
         frame: false,
         show: !settings.startMinimized,
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false
+            nodeIntegration: false,
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js')
         },
         icon: path.join(__dirname, 'assets', 'favicon.ico'),
         autoHideMenuBar: true,
@@ -229,13 +208,12 @@ ipcMain.handle('stop-server', async () => {
 
 ipcMain.handle('get-server-status', async () => {
     const serverStatus = spotifyServer ? spotifyServer.getStatus() : { running: false };
-    const credentialsPath = path.join(app.getPath('userData'), 'data', '.spotify-credentials.json');
 
     return {
         running: serverStatus.running,
         port: PORT,
-        hasToken: fs.existsSync(getTokenFilePath()),
-        hasCredentials: fs.existsSync(credentialsPath)
+        hasToken: storage.secure.has('token'),
+        hasCredentials: storage.secure.has('credentials')
     };
 }); ipcMain.handle('open-setup', async () => {
     shell.openExternal('http://127.0.0.1:3000/setup');
@@ -264,6 +242,60 @@ ipcMain.handle('set-app-autostart', async (event, enabled) => {
     } catch (error) {
         console.error('Error setting app autostart:', error);
         return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('force-kill-server', async () => {
+    try {
+        const { execSync } = require('child_process');
+        // Kill any process using port 3000 on Windows
+        try {
+            const output = execSync('netstat -ano | findstr :3000', { encoding: 'utf8' });
+            
+            const lines = output.split('\n').filter(line => line.trim().length > 0);
+            
+            const pids = new Set();
+            lines.forEach(line => {
+                const parts = line.trim().split(/\s+/);
+                const pid = parts[parts.length - 1];
+                if (pid && !isNaN(pid) && pid !== '0') {
+                    pids.add(pid);
+                }
+            });
+            
+            if (pids.size > 0) {
+                let killedCount = 0;
+                pids.forEach(pid => {
+                    try {
+                        execSync(`taskkill /F /PID ${pid}`, { encoding: 'utf8' });
+                        killedCount++;
+                    } catch (err) {
+                        console.error(`Failed to kill process ${pid}:`, err.message);
+                    }
+                });
+                
+                // Reset server state
+                if (spotifyServer) {
+                    spotifyServer.isRunning = false;
+                    spotifyServer.serverProcess = null;
+                }
+                
+                updateTrayMenu(false);
+                return { success: true, message: `Killed ${killedCount} server instance(s)` };
+            } else {
+                return { success: true, message: 'No running server instances found on port 3000' };
+            }
+        } catch (err) {
+            console.error('Netstat error:', err);
+            if (err.status === 1) {
+                // netstat found nothing - no processes on port 3000
+                return { success: true, message: 'No running server instances found on port 3000' };
+            }
+            throw err;
+        }
+    } catch (error) {
+        console.error('Error force killing server:', error);
+        return { success: false, message: 'Error terminating server instances: ' + error.message };
     }
 });
 

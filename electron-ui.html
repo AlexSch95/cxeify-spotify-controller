@@ -671,8 +671,14 @@
                     If something went wrong during setup or authorization, you can reset the token and start over.<br>
                     <strong>Note:</strong> The server must be running to reset the token.
                 </p>
-                <button class="btn-danger" onclick="resetToken()" style="width: 100%;">
+                <button class="btn-danger" onclick="resetToken()" style="width: 100%; margin-bottom: 10px;">
                     🔄 Reset Token & Restart Setup
+                </button>
+                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 12px; margin-top: 20px;">
+                    If the server won't start because the port is already in use, you can force-kill any running server instances.
+                </p>
+                <button class="btn-danger" onclick="forceKillServer()" style="width: 100%;">
+                    ⚠️ Force Kill Server Instances (Port 3000)
                 </button>
             </div>
 
@@ -683,8 +689,6 @@
     </div>
 
     <script>
-        const { ipcRenderer } = require('electron');
-
         // Tab switching
         function switchTab(tabName) {
             // Hide all tabs
@@ -704,61 +708,61 @@
 
         // Window controls
         async function minimizeWindow() {
-            await ipcRenderer.invoke('window-minimize');
+            await window.electronAPI.minimizeWindow();
         }
 
         async function closeWindow() {
-            await ipcRenderer.invoke('window-close');
+            await window.electronAPI.closeWindow();
         }
 
         async function loadSettings() {
-            const settings = await ipcRenderer.invoke('get-settings');
+            const settings = await window.electronAPI.getSettings();
             document.getElementById('autostart-toggle').checked = settings.autostart;
             document.getElementById('app-autostart-toggle').checked = settings.appAutostart || false;
             document.getElementById('start-minimized-toggle').checked = settings.startMinimized || false;
 
-            // Load accent color
+            // Load accent color for the color picker (this is only for the player widget)
             const accentColor = settings.accentColor || '#1DB954';
             document.getElementById('accent-color-picker').value = accentColor;
-            applyAccentColor(accentColor);
+            // Don't apply it to the control panel - keep Spotify green here
         }
 
         async function toggleAutostart() {
-            const settings = await ipcRenderer.invoke('get-settings');
+            const settings = await window.electronAPI.getSettings();
             settings.autostart = document.getElementById('autostart-toggle').checked;
-            await ipcRenderer.invoke('save-settings', settings);
+            await window.electronAPI.saveSettings(settings);
         }
 
         async function toggleAppAutostart() {
-            const settings = await ipcRenderer.invoke('get-settings');
+            const settings = await window.electronAPI.getSettings();
             settings.appAutostart = document.getElementById('app-autostart-toggle').checked;
-            await ipcRenderer.invoke('save-settings', settings);
+            await window.electronAPI.saveSettings(settings);
 
             // Call electron main to set/unset autostart
-            await ipcRenderer.invoke('set-app-autostart', settings.appAutostart);
+            await window.electronAPI.setAppAutostart(settings.appAutostart);
         }
 
         async function toggleStartMinimized() {
-            const settings = await ipcRenderer.invoke('get-settings');
+            const settings = await window.electronAPI.getSettings();
             settings.startMinimized = document.getElementById('start-minimized-toggle').checked;
-            await ipcRenderer.invoke('save-settings', settings);
+            await window.electronAPI.saveSettings(settings);
         }
 
         async function changeAccentColor() {
             const color = document.getElementById('accent-color-picker').value;
-            const settings = await ipcRenderer.invoke('get-settings');
+            const settings = await window.electronAPI.getSettings();
             settings.accentColor = color;
-            await ipcRenderer.invoke('save-settings', settings);
-            applyAccentColor(color);
+            await window.electronAPI.saveSettings(settings);
+            // Don't apply to control panel - this color is only for the player widget
         }
 
         function applyAccentColor(color) {
-            // Update CSS variable - this automatically updates all elements using var(--accent-color)
-            document.documentElement.style.setProperty('--accent-color', color);
+            // This function is no longer used for the control panel
+            // The control panel always uses Spotify green (#1DB954)
         }
 
         async function updateStatus() {
-            const status = await ipcRenderer.invoke('get-server-status');
+            const status = await window.electronAPI.getServerStatus();
             serverRunning = status.running;
 
             const statusDot = document.getElementById('status-dot');
@@ -816,7 +820,7 @@
             startBtn.textContent = 'Starting...';
 
             try {
-                const result = await ipcRenderer.invoke('start-server');
+                const result = await window.electronAPI.startServer();
                 console.log(result.message);
                 if (!result.success) {
                     showError(result.message);
@@ -833,7 +837,7 @@
         }
 
         async function stopServer() {
-            const result = await ipcRenderer.invoke('stop-server');
+            const result = await window.electronAPI.stopServer();
             console.log(result.message);
             if (!result.success) {
                 showError(result.message);
@@ -842,11 +846,11 @@
         }
 
         function openSetup() {
-            ipcRenderer.invoke('open-setup');
+            window.electronAPI.openSetup();
         }
 
         function openPlayer() {
-            ipcRenderer.invoke('open-player');
+            window.electronAPI.openPlayer();
         }
 
         function copyIframeCode() {
@@ -893,12 +897,30 @@
             }
         }
 
+        async function forceKillServer() {
+            if (!confirm('This will forcefully terminate all processes using port 3000. Continue?')) {
+                return;
+            }
+
+            try {
+                const result = await window.electronAPI.forceKillServer();
+                if (result.success) {
+                    alert(result.message);
+                    await updateStatus();
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                showError('Error killing server: ' + error.message);
+            }
+        }
+
         // Initial setup
         updateStatus();
         loadSettings();
 
         // Listen for server status updates
-        ipcRenderer.on('server-status', (event, status) => {
+        window.electronAPI.onServerStatus((status) => {
             updateStatus();
         });
 

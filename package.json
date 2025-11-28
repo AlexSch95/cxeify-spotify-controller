@@ -23,6 +23,7 @@
     },
     "dependencies": {
         "cors": "^2.8.5",
+        "electron-store": "^8.1.0",
         "express": "^4.18.2"
     },
     "devDependencies": {
@@ -49,6 +50,8 @@
         "files": [
             "electron-main.js",
             "electron-ui.html",
+            "preload.js",
+            "secure-storage.js",
             "server-standalone.js",
             "server-wrapper.js",
             "public/**/*",

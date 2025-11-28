@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -45,7 +45,7 @@
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            filter: brightness(0.4) blur(8px);
+            filter: brightness(0.4) blur(4px);
             transform: scale(1.1);
             z-index: -2;
             transition: background-image 0.5s ease;
@@ -211,8 +211,12 @@
             height: clamp(25px, 3.5vw, 40px);
         }
 
+        .control-btn.active {
+            background: var(--accent-color) !important;
+        }
+
         .control-btn.active svg {
-            fill: var(--accent-color) !important;
+            fill: white !important;
         }
 
         .repeat-one-indicator {
@@ -391,6 +395,264 @@
         .error-button:active {
             transform: translateY(0);
         }
+
+        /* Playlist Icon */
+        .playlist-icon {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: clamp(40px, 6vw, 60px);
+            height: clamp(40px, 6vw, 60px);
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 100;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .playlist-icon:hover {
+            background: rgba(0, 0, 0, 0.7);
+            transform: scale(1.1);
+            border-color: var(--accent-color);
+        }
+
+        .playlist-icon svg {
+            width: 60%;
+            height: 60%;
+            fill: white;
+        }
+
+        .playlist-icon.hidden {
+            display: none;
+        }
+
+        /* Playlist Overlay */
+        .playlist-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .playlist-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .playlist-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .playlist-header-content {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .playlist-header-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+        .playlist-header-info h3 {
+            font-size: clamp(16px, 3vw, 20px);
+            margin-bottom: 5px;
+        }
+
+        .playlist-header-info p {
+            font-size: clamp(12px, 2vw, 14px);
+            opacity: 0.6;
+        }
+
+        .playlist-close-btn {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .playlist-close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
+        .playlist-close-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .playlist-tracks {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        /* Custom Scrollbar */
+        .playlist-tracks::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        .playlist-tracks::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .playlist-tracks::-webkit-scrollbar-thumb {
+            background: var(--accent-color);
+            border-radius: 10px;
+            border: 2px solid rgba(0, 0, 0, 0.95);
+        }
+
+        .playlist-tracks::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+            filter: brightness(1.2);
+        }
+
+        .playlist-tracks::-webkit-scrollbar-thumb:active {
+            background: var(--accent-color);
+            filter: brightness(1.4);
+        }
+
+        .playlist-track {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            margin-bottom: 8px;
+        }
+
+        .playlist-track.current {
+            background: rgba(29, 185, 84, 0.2);
+            border-left: 3px solid var(--accent-color);
+        }
+
+        .playlist-track-number {
+            min-width: 30px;
+            text-align: center;
+            font-size: 14px;
+            opacity: 0.6;
+        }
+
+        .playlist-track.current .playlist-track-number {
+            opacity: 1;
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+
+        .playlist-track-image {
+            width: 50px;
+            height: 50px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        .playlist-track-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .playlist-track-name {
+            font-size: clamp(14px, 2.5vw, 16px);
+            font-weight: 500;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .playlist-track-artist {
+            font-size: clamp(12px, 2vw, 14px);
+            opacity: 0.6;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .playlist-track-play-btn {
+            width: 45px;
+            height: 45px;
+            min-width: 45px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .playlist-track-play-btn:hover {
+            background: var(--accent-color);
+            transform: scale(1.1);
+        }
+
+        .playlist-track-play-btn:active {
+            transform: scale(0.95);
+        }
+
+        .playlist-track-play-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .playlist-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            height: 200px;
+            font-size: 18px;
+            opacity: 0.6;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
     </style>
 </head>
 
@@ -523,7 +785,11 @@
 
         // desc: Handle playback errors with retry logic
         function handlePlaybackError(error) {
-            console.error('Playback error:', error);
+            // Only log non-network errors or first occurrence
+            if (!(error instanceof TypeError && error.message.includes('NetworkError')) || errorState.retryCount === 0) {
+                console.error('Playback error:', error);
+            }
+            
             errorState.hasError = true;
             errorState.retryCount++;
 
@@ -579,7 +845,7 @@
                 playerScreen.classList.remove('hidden');
 
                 if (!data.item) {
-                    trackName.textContent = 'Keine Wiedergabe';
+                    trackName.textContent = 'No Playback';
                     artistName.textContent = 'Start Spotify on a device';
                     albumImage.src = '';
                     return;
@@ -823,12 +1089,274 @@
             return `${minutes}:${seconds.toString().padStart(2, '0')}`;
         }
 
+        // Playlist functionality
+        let currentContext = null;
+        let playlistState = {
+            offset: 0,
+            hasMore: true,
+            loading: false,
+            totalTracks: 0
+        };
+
+        async function checkPlaylistContext() {
+            try {
+                const response = await fetch('/api/context');
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                
+                const playlistIcon = document.getElementById('playlist-icon');
+                if (!playlistIcon) return;
+                
+                if (data.hasContext && (data.type === 'playlist' || data.type === 'album')) {
+                    currentContext = data;
+                    playlistIcon.classList.remove('hidden');
+                } else {
+                    currentContext = null;
+                    playlistIcon.classList.add('hidden');
+                }
+            } catch (error) {
+                // Silently fail - context check is not critical
+            }
+        }
+
+        function renderTrack(track, index) {
+            const trackEl = document.createElement('div');
+            trackEl.className = 'playlist-track';
+            
+            if (track.uri === currentContext.currentTrackUri) {
+                trackEl.classList.add('current');
+            }
+
+            trackEl.innerHTML = `
+                <div class="playlist-track-number">${index + 1}</div>
+                <img class="playlist-track-image" src="${track.album?.images?.[0]?.url || ''}" alt="">
+                <div class="playlist-track-info">
+                    <div class="playlist-track-name">${track.name}</div>
+                    <div class="playlist-track-artist">${track.artists?.map(a => a.name).join(', ') || 'Unknown'}</div>
+                </div>
+                <button class="playlist-track-play-btn" onclick="event.stopPropagation()">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </button>
+            `;
+
+            // Add click handler only to the play button
+            const playBtn = trackEl.querySelector('.playlist-track-play-btn');
+            playBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                playTrackFromPlaylist(track.uri);
+            });
+
+            return trackEl;
+        }
+
+        async function loadMoreTracks() {
+            if (playlistState.loading || !playlistState.hasMore) return;
+            
+            playlistState.loading = true;
+            const tracksList = document.getElementById('playlist-tracks-list');
+
+            try {
+                const response = await fetch(`/api/context/${currentContext.id}/tracks?type=${currentContext.type}&offset=${playlistState.offset}&limit=20`);
+                
+                if (!response.ok) {
+                    // Don't log expected 404s for Spotify-generated playlists
+                    if (response.status !== 404) {
+                        console.error(`Error loading tracks: HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+
+                // Check if we got an error response
+                if (data.error) {
+                    // Don't log expected errors for Spotify-generated playlists
+                    if (!data.error.includes('Spotify-generated')) {
+                        console.error('Error loading tracks:', data.error);
+                    }
+                    throw new Error(data.error);
+                }
+
+                // Check if items exist
+                if (!data.items || !Array.isArray(data.items)) {
+                    playlistState.hasMore = false;
+                    
+                    if (playlistState.offset === 0) {
+                        tracksList.innerHTML = '<div class="playlist-loading">This playlist cannot be accessed.<br>Some Spotify-generated playlists may not be available through the API.</div>';
+                    }
+                    return;
+                }
+
+                data.items.forEach((item, idx) => {
+                    const track = item.track;
+                    if (!track) return;
+                    
+                    const globalIndex = playlistState.offset + idx;
+                    const trackEl = renderTrack(track, globalIndex);
+                    tracksList.appendChild(trackEl);
+                });
+
+                playlistState.offset += data.items.length;
+                playlistState.hasMore = data.hasMore !== false && data.items.length > 0;
+                playlistState.totalTracks = data.total || 0;
+
+                // Update header with correct total
+                if (data.total) {
+                    document.getElementById('playlist-overlay-type').textContent = 
+                        `${currentContext.type === 'playlist' ? 'Playlist' : 'Album'} · ${data.total} songs`;
+                }
+
+            } catch (error) {
+                // Only log unexpected errors (not 404s for Spotify playlists)
+                if (!error.message.includes('404')) {
+                    console.error('Error loading tracks:', error);
+                }
+                playlistState.hasMore = false;
+                
+                if (playlistState.offset === 0) {
+                    tracksList.innerHTML = `<div class="playlist-loading">This playlist cannot be accessed.<br>Some Spotify-generated playlists may not be available through the API.</div>`;
+                }
+            } finally {
+                playlistState.loading = false;
+            }
+        }
+
+        async function openPlaylistOverlay() {
+            const overlay = document.getElementById('playlist-overlay');
+            overlay.classList.add('active');
+
+            // Show loading spinner while fetching fresh context
+            const tracksList = document.getElementById('playlist-tracks-list');
+            tracksList.innerHTML = '<div class="playlist-loading"><div class="spinner"></div><div>Loading playlist...</div></div>';
+
+            // Fetch fresh context data
+            try {
+                const response = await fetch('/api/context');
+                if (!response.ok) {
+                    tracksList.innerHTML = '<div class="playlist-loading">Error loading playlist</div>';
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (!data.hasContext || !(data.type === 'playlist' || data.type === 'album')) {
+                    tracksList.innerHTML = '<div class="playlist-loading">No playlist or album playing</div>';
+                    return;
+                }
+
+                currentContext = data;
+
+                // Set header info with fresh data
+                document.getElementById('playlist-overlay-name').textContent = currentContext.name || 'Unknown';
+                document.getElementById('playlist-overlay-type').textContent = 
+                    `${currentContext.type === 'playlist' ? 'Playlist' : 'Album'} · ${currentContext.totalTracks || 0} songs`;
+                
+                if (currentContext.image) {
+                    document.getElementById('playlist-overlay-image').src = currentContext.image;
+                }
+
+                // Reset state
+                playlistState = {
+                    offset: 0,
+                    hasMore: true,
+                    loading: false,
+                    totalTracks: 0
+                };
+
+                // Load first batch
+                tracksList.innerHTML = '';
+                await loadMoreTracks();
+                
+                // Add scroll listener after content is loaded
+                tracksList.addEventListener('scroll', handlePlaylistScroll);
+            } catch (error) {
+                console.error('Error opening playlist overlay:', error);
+                tracksList.innerHTML = '<div class="playlist-loading">Error loading playlist</div>';
+            }
+        }
+
+        function handlePlaylistScroll(e) {
+            const element = e.target;
+            const scrollBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+            
+            // Load more when 200px from bottom
+            if (scrollBottom < 200 && playlistState.hasMore && !playlistState.loading) {
+                loadMoreTracks();
+            }
+        }
+
+        function closePlaylistOverlay() {
+            document.getElementById('playlist-overlay').classList.remove('active');
+            // Remove scroll listener
+            const tracksList = document.getElementById('playlist-tracks-list');
+            if (tracksList) {
+                tracksList.removeEventListener('scroll', handlePlaylistScroll);
+            }
+        }
+
+        async function playTrackFromPlaylist(trackUri) {
+            try {
+                const response = await fetch('/api/play-track', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contextUri: currentContext.uri,
+                        trackUri: trackUri
+                    })
+                });
+
+                if (response.ok) {
+                    closePlaylistOverlay();
+                    setTimeout(updatePlayback, 500);
+                }
+            } catch (error) {
+                console.error('Error playing track:', error);
+            }
+        }
+
         // Initialize
         loadAccentColor();
         updatePlayback();
         setInterval(updatePlayback, 1000);
         updateVolumeSliderFill(50);
+        
+        // Check for playlist context every 5 seconds
+        checkPlaylistContext();
+        setInterval(checkPlaylistContext, 5000);
     </script>
+
+    <!-- Playlist Icon -->
+    <div id="playlist-icon" class="playlist-icon hidden" onclick="openPlaylistOverlay()">
+        <svg viewBox="0 0 24 24">
+            <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+        </svg>
+    </div>
+
+    <!-- Playlist Overlay -->
+    <div id="playlist-overlay" class="playlist-overlay">
+        <div class="playlist-header">
+            <div class="playlist-header-content">
+                <img id="playlist-overlay-image" class="playlist-header-image" src="" alt="">
+                <div class="playlist-header-info">
+                    <h3 id="playlist-overlay-name">Playlist Name</h3>
+                    <p id="playlist-overlay-type">Playlist · 0 songs</p>
+                </div>
+            </div>
+            <button class="playlist-close-btn" onclick="closePlaylistOverlay()">
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
+        <div id="playlist-tracks-list" class="playlist-tracks">
+            <!-- Tracks will be loaded here -->
+        </div>
+    </div>
 </body>
 
 </html>

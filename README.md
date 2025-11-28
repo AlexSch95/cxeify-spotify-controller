@@ -5,7 +5,9 @@ A modern Spotify controller designed for Corsair Xeneon Edge displays, built wit
 ## Features
 
 - **Real-time Playback Control**: Play, pause, skip tracks, adjust volume, and seek through songs
+- **Cross-Device Control**: Control Spotify playing on any device (PC, smartphone, tablet) from your display
 - **Shuffle & Repeat**: Full control over playback modes directly from the interface
+- **Playlist & Album Viewer**: Browse the current playlist or album with lazy loading for smooth performance
 - **Touch-Optimized UI**: Large, responsive controls perfect for touch displays
 - **Album Art Backgrounds**: Blurred album art creates an immersive visual experience
 - **Customizable Appearance**: Choose your own accent color to match your setup
@@ -21,6 +23,12 @@ Cxeify consists of two main components:
 2. **Player Interface**: Web-based UI that displays in your browser or iCUE
 
 The app runs a local Express server that communicates with Spotify's Web API to control your playback. All data stays on your machine - no external services involved.
+
+**Cross-Device Playback**: Cxeify can control Spotify playing on any device connected to your account - your PC, smartphone, smart speaker, or any other Spotify Connect device. The controller automatically detects and connects to the active playback device.
+
+**Known Limitations**: 
+- Volume control is not available when controlling Spotify on mobile devices (iOS/Android) due to Spotify API restrictions. All other controls (play/pause, skip, seek, shuffle, repeat) work across all devices.
+- Spotify-generated playlists (e.g., "Discover Weekly", "Release Radar", personalized mixes) cannot be displayed in the playlist viewer due to Spotify API privacy restrictions. User-created playlists and albums work without limitations.
 
 ## Setup
 
@@ -54,7 +62,29 @@ The app runs a local Express server that communicates with Spotify's Web API to 
 - **Electron** - Desktop app framework
 - **Express** - Local API server
 - **Spotify Web API** - Playback control via OAuth 2.0 PKCE flow
+- **electron-store** - Secure local storage for credentials and settings
 - **Vanilla JavaScript** - No frontend frameworks, keeping it lightweight
+
+## Data Storage & Security
+
+Cxeify stores all data locally on your machine using **electron-store**:
+
+**Location**: `%APPDATA%/Roaming/Cxeify/` (Windows)
+
+**What's stored**:
+- **Spotify Credentials** (Client ID & Secret) - Stored via electron-store in `secure-credentials.json`
+- **Access & Refresh Tokens** - Stored via electron-store in `secure-credentials.json`
+- **Last Used Device** - For auto-reconnect after inactivity (`.last-device.json`)
+- **App Settings** - Autostart preferences, accent color, etc. (`settings.json`)
+
+**Security measures**:
+- All data stored locally using electron-store - no external servers involved
+- electron-store provides atomic writes and validation
+- Files stored in user-specific AppData directory with restricted permissions
+- Access tokens expire after 1 hour and refresh automatically
+- Short-lived tokens limit exposure if compromised
+
+**Note**: While electron-store provides atomic writes and the data is stored locally with restricted file permissions, complete protection against determined attackers with system access is not possible. This is a limitation of all desktop applications that need to store credentials locally.
 
 ---
 
@@ -85,23 +115,27 @@ The installer will be created in the `dist/` folder.
 
 ### Project Structure
 
-- `electron-main.js` - Main Electron process (window management, system tray)
+- `electron-main.js` - Main Electron process (window management, system tray, server control)
 - `electron-ui.html` - Control Panel interface with setup guide and settings
+- `preload.js` - Secure bridge between main and renderer process
+- `secure-storage.js` - Wrapper for electron-store
 - `server-standalone.js` - Express server handling Spotify API communication
 - `server-wrapper.js` - Child process manager for the Express server
-- `public/player.html` - Player UI for display in browser/iCUE
+- `public/player.html` - Player UI with playlist viewer for display in browser/iCUE
 - `assets/` - Icons and images
 
-### User Data Storage
+### Key Features Implementation
 
-The app stores user data in:
-- **Windows**: `%APPDATA%/Roaming/spotify-controller/data/`
+**Playlist Viewer**:
+- Lazy loading of tracks (20 per batch) for optimal performance
+- Infinite scroll for seamless browsing
+- Custom scrollbar styling matching the accent color
+- Graceful handling of inaccessible Spotify-generated playlists
 
-This includes:
-- Spotify access tokens
-- Spotify app credentials
-- Last used device
-- User settings (autostart, accent color)
+**API Endpoints**:
+- `/api/context` - Fetches current playlist/album information
+- `/api/context/:contextId/tracks` - Loads tracks with pagination support
+- `/api/play-track` - Plays a specific track from the current context
 
 ## Credits
 

@@ -11,34 +11,62 @@ let CLIENT_ID = null;
 let CLIENT_SECRET = null;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
 
-// desc: Determine data directory based on environment
+// desc: Determine data directory - use electron-store location
 const getDataDir = () => {
     if (process.env.SPOTIFY_CONTROLLER_DATA) {
         return process.env.SPOTIFY_CONTROLLER_DATA;
     }
-    const devDataDir = path.join(__dirname, 'data');
-    if (fs.existsSync(devDataDir) || !process.pkg) {
-        return devDataDir;
-    }
-    return path.join(os.homedir(), 'AppData', 'Roaming', 'spotify-controller');
+    return path.join(os.homedir(), 'AppData', 'Roaming', 'Cxeify');
 };
 
 const DATA_DIR = getDataDir();
-const TOKEN_FILE = path.join(DATA_DIR, '.spotify-token.json');
-const CREDENTIALS_FILE = path.join(DATA_DIR, '.spotify-credentials.json');
+const SECURE_STORE_FILE = path.join(DATA_DIR, 'secure-credentials.json');
 const LAST_DEVICE_FILE = path.join(DATA_DIR, '.last-device.json');
 
 let tokenData = null;
 let lastDeviceId = null;
 
-// desc: Load Spotify API credentials from disk
+// desc: Load encrypted secure store data
+function loadSecureStore() {
+    try {
+        if (fs.existsSync(SECURE_STORE_FILE)) {
+            // electron-store creates encrypted JSON, we just read it raw
+            return JSON.parse(fs.readFileSync(SECURE_STORE_FILE, 'utf8'));
+        }
+    } catch (error) {
+        console.error('Error loading secure store:', error);
+    }
+    return {};
+}
+
+// desc: Save to encrypted secure store
+function saveToSecureStore(key, value) {
+    try {
+        const dir = path.dirname(SECURE_STORE_FILE);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        let store = loadSecureStore();
+        store[key] = value;
+        
+        fs.writeFileSync(SECURE_STORE_FILE, JSON.stringify(store, null, 2));
+        console.log(`Saved ${key} to secure store`);
+        return true;
+    } catch (error) {
+        console.error(`Error saving ${key} to secure store:`, error);
+        return false;
+    }
+}
+
+// desc: Load Spotify API credentials from secure store
 function loadCredentials() {
     try {
-        if (fs.existsSync(CREDENTIALS_FILE)) {
-            const data = JSON.parse(fs.readFileSync(CREDENTIALS_FILE, 'utf8'));
-            CLIENT_ID = data.clientId;
-            CLIENT_SECRET = data.clientSecret;
-            console.log('Credentials loaded from file');
+        const store = loadSecureStore();
+        if (store.credentials) {
+            CLIENT_ID = store.credentials.clientId;
+            CLIENT_SECRET = store.credentials.clientSecret;
+            console.log('Credentials loaded from secure store');
             return true;
         }
     } catch (error) {
@@ -47,52 +75,36 @@ function loadCredentials() {
     return false;
 }
 
-// desc: Save Spotify API credentials to disk
+// desc: Save Spotify API credentials to secure store
 function saveCredentials(clientId, clientSecret) {
-    try {
-        const dir = path.dirname(CREDENTIALS_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(CREDENTIALS_FILE, JSON.stringify({ clientId, clientSecret }, null, 2));
+    const success = saveToSecureStore('credentials', { clientId, clientSecret });
+    if (success) {
         CLIENT_ID = clientId;
         CLIENT_SECRET = clientSecret;
-        console.log('Credentials saved to file');
-        return true;
-    } catch (error) {
-        console.error('Error saving credentials:', error);
-        return false;
     }
+    return success;
 }
 
 function hasCredentials() {
     return CLIENT_ID && CLIENT_SECRET;
 }
 
-// desc: Load OAuth token from disk
+// desc: Load OAuth token from secure store
 function loadToken() {
     try {
-        if (fs.existsSync(TOKEN_FILE)) {
-            tokenData = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
-            console.log('Token loaded from file');
+        const store = loadSecureStore();
+        if (store.token) {
+            tokenData = store.token;
+            console.log('Token loaded from secure store');
         }
     } catch (error) {
         console.error('Error loading token:', error);
     }
 }
 
-// desc: Persist OAuth token to disk
+// desc: Persist OAuth token to secure store
 function saveToken(data) {
-    try {
-        const dir = path.dirname(TOKEN_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
-        console.log('Token saved to file');
-    } catch (error) {
-        console.error('Error saving token:', error);
-    }
+    saveToSecureStore('token', data);
 }
 
 // desc: Load last used Spotify device from disk
@@ -171,15 +183,18 @@ app.get('/api/credentials-status', (req, res) => {
 // desc: Get custom accent color from Electron settings
 app.get('/api/accent-color', (req, res) => {
     try {
-        const settingsPath = process.env.SPOTIFY_SETTINGS_PATH || path.join(DATA_DIR, '..', 'settings.json');
+        // electron-store saves settings.json directly in DATA_DIR
+        const settingsPath = path.join(DATA_DIR, 'settings.json');
+        
         if (fs.existsSync(settingsPath)) {
-            const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+            const fileContent = fs.readFileSync(settingsPath, 'utf8');
+            const settings = JSON.parse(fileContent);
             res.json({ accentColor: settings.accentColor || '#1DB954' });
         } else {
             res.json({ accentColor: '#1DB954' });
         }
     } catch (error) {
-        console.error('Error reading accent color:', error);
+        console.error('[ACCENT-COLOR] Error reading accent color:', error);
         res.json({ accentColor: '#1DB954' });
     }
 });
@@ -187,13 +202,16 @@ app.get('/api/accent-color', (req, res) => {
 // desc: Delete saved OAuth token for troubleshooting
 app.post('/api/reset-token', (req, res) => {
     try {
-        if (fs.existsSync(TOKEN_FILE)) {
-            fs.unlinkSync(TOKEN_FILE);
+        // Delete token from secure store
+        let store = loadSecureStore();
+        if (store.token) {
+            delete store.token;
+            fs.writeFileSync(SECURE_STORE_FILE, JSON.stringify(store, null, 2));
             tokenData = null;
-            console.log('Token file deleted');
+            console.log('Token deleted from secure store');
             res.json({ success: true, message: 'Token reset successfully' });
         } else {
-            res.json({ success: true, message: 'No token file to delete' });
+            res.json({ success: true, message: 'No token to delete' });
         }
     } catch (error) {
         console.error('Error deleting token:', error);
@@ -369,15 +387,11 @@ app.post('/api/play-pause', async (req, res) => {
                 // Priority 2: Use active device
                 if (!device) {
                     device = devicesData.devices.find(d => d.is_active);
-                    if (device) {
-                        console.log('Using active device:', device.name);
-                    }
                 }
 
                 // Priority 3: Use first available device
                 if (!device) {
                     device = devicesData.devices[0];
-                    console.log('Using first available device:', device.name);
                 }
 
                 // Start playback on the selected device
@@ -517,6 +531,206 @@ app.post('/api/repeat', async (req, res) => {
         res.json({ success: true, repeat: state });
     } catch (error) {
         console.error('Error setting repeat:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// desc: Get context details (playlist or album)
+app.get('/api/context', async (req, res) => {
+    try {
+        const token = await ensureValidToken();
+        
+        // Get current playback to find context
+        const playerResponse = await fetch('https://api.spotify.com/v1/me/player', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (playerResponse.status === 204) {
+            return res.json({ hasContext: false });
+        }
+
+        const playerData = await playerResponse.json();
+        
+        if (!playerData.context || !playerData.context.uri) {
+            return res.json({ hasContext: false });
+        }
+
+        const contextUri = playerData.context.uri;
+        const contextType = playerData.context.type; // playlist, album, artist, show
+        const contextId = contextUri.split(':').pop();
+
+        let contextData = null;
+
+        // Fetch playlist or album details
+        if (contextType === 'playlist') {
+            const playlistResponse = await fetch(`https://api.spotify.com/v1/playlists/${contextId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (playlistResponse.ok) {
+                contextData = await playlistResponse.json();
+            } else {
+                const errorText = await playlistResponse.text();
+                console.error('[CONTEXT] Failed to load playlist:', playlistResponse.status, errorText);
+            }
+        } else if (contextType === 'album') {
+            const albumResponse = await fetch(`https://api.spotify.com/v1/albums/${contextId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (albumResponse.ok) {
+                contextData = await albumResponse.json();
+            } else {
+                console.error('[CONTEXT] Failed to load album:', albumResponse.status);
+            }
+        }
+
+        // Fallback: Use track info if context data failed
+        const name = contextData?.name || playerData.item?.album?.name || playerData.context?.external_urls?.spotify?.split('/').pop() || 'Spotify Playlist';
+        const image = contextData?.images?.[0]?.url || playerData.item?.album?.images?.[0]?.url || '';
+        const totalTracks = contextData?.tracks?.total || 0;
+
+        res.json({
+            hasContext: true,
+            type: contextType,
+            uri: contextUri,
+            id: contextId,
+            name: name,
+            image: image,
+            owner: contextData?.owner?.display_name || 'Spotify',
+            totalTracks: totalTracks,
+            currentTrackUri: playerData.item?.uri
+        });
+    } catch (error) {
+        console.error('Error getting context:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// desc: Get playlist or album tracks with lazy loading
+app.get('/api/context/:contextId/tracks', async (req, res) => {
+    try {
+        const token = await ensureValidToken();
+        const { contextId } = req.params;
+        const { type, offset = 0, limit = 20 } = req.query;
+
+        const offsetNum = parseInt(offset);
+        const limitNum = parseInt(limit);
+
+        if (type === 'playlist') {
+            const response = await fetch(`https://api.spotify.com/v1/playlists/${contextId}/tracks?limit=${limitNum}&offset=${offsetNum}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) {
+                console.error('[TRACKS] Failed to load playlist tracks:', response.status);
+                const errorText = await response.text();
+                console.error('[TRACKS] Error details:', errorText);
+                return res.status(response.status).json({ 
+                    error: 'Cannot access this playlist. It may be a Spotify-generated playlist.',
+                    items: [],
+                    total: 0,
+                    hasMore: false
+                });
+            }
+            
+            const data = await response.json();
+            res.json({
+                items: data.items || [],
+                total: data.total || 0,
+                hasMore: data.next !== null
+            });
+        } else if (type === 'album') {
+            const response = await fetch(`https://api.spotify.com/v1/albums/${contextId}/tracks?limit=${limitNum}&offset=${offsetNum}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) {
+                console.error('[TRACKS] Failed to load album tracks:', response.status);
+                return res.status(response.status).json({ 
+                    error: 'Cannot access this album.',
+                    items: [],
+                    total: 0,
+                    hasMore: false
+                });
+            }
+            
+            const data = await response.json();
+            // Transform album tracks to match playlist format
+            res.json({
+                items: (data.items || []).map(track => ({ track })),
+                total: data.total || 0,
+                hasMore: data.next !== null
+            });
+        }
+    } catch (error) {
+        console.error('Error getting tracks:', error);
+        res.status(500).json({ 
+            error: error.message,
+            items: [],
+            total: 0,
+            hasMore: false
+        });
+    }
+});
+
+// desc: Play specific track from context
+app.post('/api/play-track', async (req, res) => {
+    try {
+        const token = await ensureValidToken();
+        const { contextUri, trackUri } = req.body;
+
+        // Get available devices
+        const devicesResponse = await fetch('https://api.spotify.com/v1/me/player/devices', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        const devicesData = await devicesResponse.json();
+
+        if (!devicesData.devices || devicesData.devices.length === 0) {
+            return res.status(404).json({ error: 'No active device found' });
+        }
+
+        // Find device (prefer last used or active)
+        let device = devicesData.devices.find(d => d.id === lastDeviceId);
+        if (!device) {
+            device = devicesData.devices.find(d => d.is_active) || devicesData.devices[0];
+        }
+
+        // Start playback
+        const playResponse = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${device.id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                context_uri: contextUri,
+                offset: {
+                    uri: trackUri
+                }
+            })
+        });
+
+        if (playResponse.status === 204 || playResponse.status === 200) {
+            res.json({ success: true });
+        } else {
+            const error = await playResponse.text();
+            res.status(playResponse.status).json({ error });
+        }
+    } catch (error) {
+        console.error('Error playing track:', error);
         res.status(500).json({ error: error.message });
     }
 });

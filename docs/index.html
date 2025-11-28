@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cxeify - Spotify Controller for Corsair Xeneon Edge</title>
+    <meta name="description" content="A modern Spotify controller designed for Corsair Xeneon Edge displays. Control your Spotify playback with a beautiful, touch-optimized interface.">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --spotify-green: #1DB954;
+            --dark-bg: #121212;
+            --card-bg: #181818;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        header {
+            padding: 60px 0 40px;
+            text-align: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+
+        .logo {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--spotify-green);
+            margin-bottom: 10px;
+        }
+
+        .tagline {
+            font-size: 20px;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        .download-btn {
+            display: inline-block;
+            background: var(--spotify-green);
+            color: var(--dark-bg);
+            padding: 16px 48px;
+            border-radius: 500px;
+            font-size: 16px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 24px rgba(29, 185, 84, 0.3);
+        }
+
+        .download-btn:hover {
+            background: #1ed760;
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(29, 185, 84, 0.4);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 80px 0;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 56px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+
+        .hero p {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto 40px;
+        }
+
+        /* Features Grid */
+        .features {
+            padding: 80px 0;
+            background: var(--card-bg);
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 60px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+        }
+
+        .feature-card {
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--spotify-green);
+            box-shadow: 0 8px 24px rgba(29, 185, 84, 0.2);
+        }
+
+        .feature-icon {
+            font-size: 40px;
+            margin-bottom: 20px;
+        }
+
+        .feature-card h3 {
+            font-size: 22px;
+            margin-bottom: 12px;
+            color: var(--spotify-green);
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+
+        /* Tech Stack */
+        .tech-stack {
+            padding: 80px 0;
+            text-align: center;
+        }
+
+        .tech-stack h2 {
+            font-size: 40px;
+            margin-bottom: 40px;
+        }
+
+        .tech-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .tech-badge {
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 500px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Footer */
+        footer {
+            padding: 60px 0 40px;
+            text-align: center;
+            background: var(--card-bg);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer-links {
+            margin-bottom: 30px;
+        }
+
+        .footer-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin: 0 20px;
+            font-size: 16px;
+            transition: color 0.3s ease;
+        }
+
+        .footer-link:hover {
+            color: var(--spotify-green);
+        }
+
+        .footer-note {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 36px;
+            }
+
+            .hero p {
+                font-size: 18px;
+            }
+
+            .features h2,
+            .tech-stack h2 {
+                font-size: 32px;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">Cxeify</div>
+            <p class="tagline">Spotify Controller for Corsair Xeneon Edge</p>
+            <a href="#download" class="download-btn">Download v1.0.0</a>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Control Spotify from Your Display</h1>
+            <p>A modern, touch-optimized Spotify controller designed specifically for Corsair Xeneon Edge displays. Control your music with style.</p>
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="container">
+            <h2>Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎵</div>
+                    <h3>Real-time Playback Control</h3>
+                    <p>Play, pause, skip tracks, adjust volume, and seek through songs with responsive controls.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3>Cross-Device Control</h3>
+                    <p>Control Spotify playing on any device - PC, smartphone, tablet, or smart speaker.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>Customizable Appearance</h3>
+                    <p>Choose your own accent color and enjoy album art backgrounds with a blurred effect.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📋</div>
+                    <h3>Playlist Viewer</h3>
+                    <p>Browse your current playlist or album with smooth lazy loading and infinite scroll.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">✋</div>
+                    <h3>Touch Optimized</h3>
+                    <p>Large, responsive controls designed specifically for touch displays.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Auto-Start Options</h3>
+                    <p>Launch automatically on Windows startup and start the server automatically.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔀</div>
+                    <h3>Shuffle & Repeat</h3>
+                    <p>Full control over playback modes with visual indicators.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎮</div>
+                    <h3>iCUE Integration</h3>
+                    <p>Embeds seamlessly into Corsair iCUE as an iFrame widget.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Privacy First</h3>
+                    <p>All data stays on your machine. No external services, no tracking.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tech-stack">
+        <div class="container">
+            <h2>Built With</h2>
+            <div class="tech-list">
+                <span class="tech-badge">Electron</span>
+                <span class="tech-badge">Express.js</span>
+                <span class="tech-badge">Spotify Web API</span>
+                <span class="tech-badge">OAuth 2.0 PKCE</span>
+                <span class="tech-badge">electron-store</span>
+                <span class="tech-badge">Vanilla JavaScript</span>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://github.com/AlexSch95/cxeify-spotify-controller" class="footer-link" target="_blank">GitHub</a>
+                <a href="https://github.com/AlexSch95/cxeify-spotify-controller#setup" class="footer-link" target="_blank">Documentation</a>
+                <a href="https://github.com/AlexSch95/cxeify-spotify-controller/issues" class="footer-link" target="_blank">Report Issue</a>
+            </div>
+            <p class="footer-note">Made by Machinezr (Discord: machine666)</p>
+            <p class="footer-note" style="margin-top: 10px; font-size: 12px;">Requires Spotify Premium · Not affiliated with Spotify or Corsair</p>
+        </div>
+    </footer>
+</body>
+</html>
