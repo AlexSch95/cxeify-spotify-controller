@@ -45,7 +45,8 @@
             "allowToChangeInstallationDirectory": true,
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
-            "shortcutName": "Cxeify"
+            "shortcutName": "Cxeify",
+            "deleteAppDataOnUninstall": true
         },
         "files": [
             "electron-main.js",
