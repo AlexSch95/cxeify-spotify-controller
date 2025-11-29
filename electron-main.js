@@ -7,8 +7,6 @@ let mainWindow = null;
 let tray = null;
 let spotifyServer = null;
 
-const PORT = 3000;
-
 // desc: Load user settings from electron-store
 function loadSettings() {
     return storage.settings.getAll();
@@ -18,6 +16,12 @@ function loadSettings() {
 function saveSettings(settings) {
     storage.settings.setAll(settings);
     console.log('Settings saved');
+}
+
+// desc: Get configured port from settings
+function getPort() {
+    const settings = loadSettings();
+    return settings.port || 3000;
 }
 
 // desc: Start the Express server as child process
@@ -30,6 +34,8 @@ async function startServer() {
     if (spotifyServer.getStatus().running) {
         return { success: false, message: 'Server is already running' };
     }
+
+    const PORT = getPort();
 
     try {
         const result = await spotifyServer.start(PORT);
@@ -95,12 +101,38 @@ function createWindow() {
 
     mainWindow.loadFile('electron-ui.html');
 
+    let hasShownTrayNotification = false;
+
     mainWindow.on('close', (event) => {
         if (!app.isQuitting) {
             event.preventDefault();
-            mainWindow.hide();
+            
+            const { dialog } = require('electron');
+            
+            const result = dialog.showMessageBoxSync(mainWindow, {
+                type: 'question',
+                title: 'Minimize to Tray?',
+                message: 'Cxeify is still running',
+                detail: 'Do you want to minimize to the system tray or close the application completely?',
+                buttons: ['Minimize to Tray', 'Close Completely'],
+                defaultId: 0,
+                cancelId: 0,
+                noLink: true
+            });
+            
+            if (result === 0) {
+                // Minimize to tray
+                mainWindow.hide();
+            } else {
+                // Close completely
+                app.isQuitting = true;
+                if (tray) {
+                    tray.destroy();
+                    tray = null;
+                }
+                app.quit();
+            }
         }
-        return false;
     });
 }
 
@@ -134,14 +166,16 @@ function updateTrayMenu(serverRunning) {
         {
             label: 'Open Player (Browser)',
             click: () => {
-                shell.openExternal('http://127.0.0.1:3000/player.html');
+                const PORT = getPort();
+                shell.openExternal(`http://127.0.0.1:${PORT}/player.html`);
             },
             enabled: serverRunning
         },
         {
             label: 'Open Setup (Browser)',
             click: () => {
-                shell.openExternal('http://127.0.0.1:3000/setup');
+                const PORT = getPort();
+                shell.openExternal(`http://127.0.0.1:${PORT}/setup`);
             },
             enabled: serverRunning
         },
@@ -195,7 +229,7 @@ ipcMain.handle('window-minimize', () => {
 });
 
 ipcMain.handle('window-close', () => {
-    if (mainWindow) mainWindow.hide();
+    if (mainWindow) mainWindow.close();
 });
 
 ipcMain.handle('start-server', async () => {
@@ -208,6 +242,7 @@ ipcMain.handle('stop-server', async () => {
 
 ipcMain.handle('get-server-status', async () => {
     const serverStatus = spotifyServer ? spotifyServer.getStatus() : { running: false };
+    const PORT = getPort();
 
     return {
         running: serverStatus.running,
@@ -216,11 +251,13 @@ ipcMain.handle('get-server-status', async () => {
         hasCredentials: storage.secure.has('credentials')
     };
 }); ipcMain.handle('open-setup', async () => {
-    shell.openExternal('http://127.0.0.1:3000/setup');
+    const PORT = getPort();
+    shell.openExternal(`http://127.0.0.1:${PORT}/setup`);
 });
 
 ipcMain.handle('open-player', async () => {
-    shell.openExternal('http://127.0.0.1:3000/player.html');
+    const PORT = getPort();
+    shell.openExternal(`http://127.0.0.1:${PORT}/player.html`);
 });
 
 ipcMain.handle('get-settings', async () => {

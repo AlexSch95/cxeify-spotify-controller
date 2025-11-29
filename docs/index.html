@@ -98,6 +98,176 @@
             transform: translateY(-2px);
         }
 
+        /* Changelog Section */
+        .changelog-section {
+            margin-top: 30px;
+        }
+
+        .changelog-toggle {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .changelog-toggle:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .changelog-toggle::after {
+            content: '▼';
+            font-size: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .changelog-toggle.active::after {
+            transform: rotate(180deg);
+        }
+
+        .changelog-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .changelog-content.active {
+            max-height: 2000px;
+        }
+
+        .version-block {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .version-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--spotify-green);
+        }
+
+        .version-date {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .version-badge {
+            background: var(--spotify-green);
+            color: var(--dark-bg);
+            padding: 4px 12px;
+            border-radius: 500px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .changelog-category {
+            margin-bottom: 20px;
+        }
+
+        .changelog-category:last-child {
+            margin-bottom: 0;
+        }
+
+        .changelog-category h4 {
+            font-size: 16px;
+            color: var(--spotify-green);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .changelog-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .changelog-list li {
+            padding: 6px 0 6px 24px;
+            position: relative;
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .changelog-list li::before {
+            content: '•';
+            position: absolute;
+            left: 8px;
+            color: var(--spotify-green);
+            font-weight: 700;
+        }
+
+        .warning-box {
+            background: rgba(255, 196, 0, 0.1);
+            border: 1px solid rgba(255, 196, 0, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        .warning-box p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .warning-box strong {
+            color: #ffc400;
+        }
+
+        .old-versions {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .old-versions h4 {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .old-version-link {
+            display: inline-block;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .old-version-link:hover {
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
         /* Hero Section */
         .hero {
             padding: 80px 0;
@@ -324,8 +494,93 @@
             <div class="logo">Cxeify</div>
             <p class="tagline">Spotify Controller for Corsair Xeneon Edge</p>
             <div class="header-buttons">
-                <a href="https://github.com/AlexSch95/cxeify-spotify-controller/releases/download/v1.0.0/Cxeify.Setup.1.0.0.exe" class="download-btn">Download v1.0.0</a>
+                <a href="https://github.com/AlexSch95/cxeify-spotify-controller/releases/download/v1.1.0/Cxeify.Setup.1.1.0.exe" class="download-btn">Download v1.1.0</a>
                 <a href="https://github.com/AlexSch95/cxeify-spotify-controller" class="github-btn" target="_blank">View on GitHub</a>
+            </div>
+            
+            <div class="changelog-section">
+                <button class="changelog-toggle" onclick="toggleChangelog()">
+                    View Changelog
+                </button>
+                <div class="changelog-content" id="changelogContent">
+                    <!-- v1.1.0 -->
+                    <div class="version-block">
+                        <div class="version-header">
+                            <div>
+                                <span class="version-title">v1.1.0</span>
+                                <span class="version-badge">LATEST</span>
+                            </div>
+                            <span class="version-date">November 29, 2024</span>
+                        </div>
+
+                        <div class="warning-box">
+                            <p><strong>⚠️ Important:</strong> We've switched to PKCE authentication (no Client Secret needed anymore). If you're upgrading from v1.0.0, we recommend <strong>uninstalling the old version completely</strong> before installing v1.1.0 to ensure old tokens and settings are removed.</p>
+                        </div>
+
+                        <div class="changelog-category">
+                            <h4>✨ New Features</h4>
+                            <ul class="changelog-list">
+                                <li>Switched to PKCE OAuth flow - <strong>no Client Secret required anymore!</strong> Setup is now much simpler</li>
+                                <li>Added "Load More" button for playlists - replaces infinite scroll for better performance and control</li>
+                                <li>Configurable server port - change from default 3000 if needed (Settings panel)</li>
+                                <li>Close dialog with minimize/quit options - choose between minimizing to tray or closing completely</li>
+                                <li>Changelog now visible in Control Panel setup guide tab</li>
+                            </ul>
+                        </div>
+
+                        <div class="changelog-category">
+                            <h4>🐛 Bug Fixes</h4>
+                            <ul class="changelog-list">
+                                <li>Fixed "Load More" button getting stuck in "Loading..." state</li>
+                                <li>Simplified rate limit handling - now correctly displays wait time in hours/minutes/seconds</li>
+                                <li>Fixed playlist state management when loading additional tracks</li>
+                                <li>Fixed iframe copy button throwing "Cannot read properties of undefined" error</li>
+                                <li>Fixed tray icon not being removed when closing app completely</li>
+                            </ul>
+                        </div>
+
+                        <div class="changelog-category">
+                            <h4>🔧 Improvements</h4>
+                            <ul class="changelog-list">
+                                <li>Removed Client Secret from setup process - only Client ID needed now</li>
+                                <li>Updated setup guide to reflect PKCE authentication (no more Client Secret steps)</li>
+                                <li>Cleaner error messages for rate limiting</li>
+                                <li>Better handling of Spotify API rate limits</li>
+                                <li>Code cleanup - removed unused functions and dependencies</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- v1.0.0 -->
+                    <div class="version-block">
+                        <div class="version-header">
+                            <span class="version-title">v1.0.0</span>
+                            <span class="version-date">November 2024</span>
+                        </div>
+
+                        <div class="changelog-category">
+                            <h4>🎉 Initial Release</h4>
+                            <ul class="changelog-list">
+                                <li>Real-time Spotify playback control</li>
+                                <li>Cross-device playback control</li>
+                                <li>Touch-optimized interface for Corsair Xeneon Edge</li>
+                                <li>Playlist viewer with infinite scroll</li>
+                                <li>Customizable accent colors</li>
+                                <li>Album art backgrounds with blur effect</li>
+                                <li>Auto-start options (app and server)</li>
+                                <li>System tray integration</li>
+                                <li>OAuth 2.0 authentication with Spotify</li>
+                                <li>Local server with Express.js</li>
+                                <li>Electron-based desktop application</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="old-versions">
+                        <h4>Previous Versions</h4>
+                        <a href="https://github.com/AlexSch95/cxeify-spotify-controller/releases/download/v1.0.0/Cxeify.Setup.1.0.0.exe" class="old-version-link">Download v1.0.0</a>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
@@ -447,5 +702,15 @@
             <p class="footer-note" style="margin-top: 10px; font-size: 12px;">Requires Spotify Premium · Not affiliated with Spotify or Corsair</p>
         </div>
     </footer>
+
+    <script>
+        function toggleChangelog() {
+            const content = document.getElementById('changelogContent');
+            const toggle = document.querySelector('.changelog-toggle');
+            
+            content.classList.toggle('active');
+            toggle.classList.toggle('active');
+        }
+    </script>
 </body>
 </html>

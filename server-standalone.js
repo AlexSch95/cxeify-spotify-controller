@@ -8,7 +8,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 let CLIENT_ID = null;
-let CLIENT_SECRET = null;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
 
 // desc: Determine data directory - use electron-store location
@@ -25,6 +24,13 @@ const LAST_DEVICE_FILE = path.join(DATA_DIR, '.last-device.json');
 
 let tokenData = null;
 let lastDeviceId = null;
+
+// desc: Get Spotify API headers
+function getSpotifyHeaders(token) {
+    return {
+        'Authorization': `Bearer ${token}`
+    };
+}
 
 // desc: Load encrypted secure store data
 function loadSecureStore() {
@@ -51,7 +57,6 @@ function saveToSecureStore(key, value) {
         store[key] = value;
         
         fs.writeFileSync(SECURE_STORE_FILE, JSON.stringify(store, null, 2));
-        console.log(`Saved ${key} to secure store`);
         return true;
     } catch (error) {
         console.error(`Error saving ${key} to secure store:`, error);
@@ -65,7 +70,6 @@ function loadCredentials() {
         const store = loadSecureStore();
         if (store.credentials) {
             CLIENT_ID = store.credentials.clientId;
-            CLIENT_SECRET = store.credentials.clientSecret;
             console.log('Credentials loaded from secure store');
             return true;
         }
@@ -76,17 +80,16 @@ function loadCredentials() {
 }
 
 // desc: Save Spotify API credentials to secure store
-function saveCredentials(clientId, clientSecret) {
-    const success = saveToSecureStore('credentials', { clientId, clientSecret });
+function saveCredentials(clientId) {
+    const success = saveToSecureStore('credentials', { clientId });
     if (success) {
         CLIENT_ID = clientId;
-        CLIENT_SECRET = clientSecret;
     }
     return success;
 }
 
 function hasCredentials() {
-    return CLIENT_ID && CLIENT_SECRET;
+    return CLIENT_ID !== null;
 }
 
 // desc: Load OAuth token from secure store
@@ -130,7 +133,6 @@ function saveLastDevice(deviceId, deviceName) {
         const data = { deviceId, deviceName, timestamp: Date.now() };
         fs.writeFileSync(LAST_DEVICE_FILE, JSON.stringify(data, null, 2));
         lastDeviceId = deviceId;
-        console.log('Last device saved:', deviceName);
     } catch (error) {
         console.error('Error saving last device:', error);
     }
@@ -145,7 +147,7 @@ function generateCodeChallenge(verifier) {
     return crypto.createHash('sha256').update(verifier).digest('base64url');
 }
 
-app.use(express.json());
+app.use(express.json({ charset: 'utf-8' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 let codeVerifier = '';
@@ -162,13 +164,13 @@ app.get('/setup', (req, res) => {
 
 // desc: Save user-provided Spotify API credentials
 app.post('/api/save-credentials', (req, res) => {
-    const { clientId, clientSecret } = req.body;
+    const { clientId } = req.body;
 
-    if (!clientId || !clientSecret) {
-        return res.status(400).json({ error: 'Client ID and Secret required' });
+    if (!clientId) {
+        return res.status(400).json({ error: 'Missing clientId' });
     }
 
-    if (saveCredentials(clientId, clientSecret)) {
+    if (saveCredentials(clientId)) {
         res.json({ success: true });
     } else {
         res.status(500).json({ error: 'Failed to save credentials' });
@@ -256,7 +258,6 @@ app.get('/callback', async (req, res) => {
             },
             body: new URLSearchParams({
                 client_id: CLIENT_ID,
-                client_secret: CLIENT_SECRET,
                 grant_type: 'authorization_code',
                 code: code,
                 redirect_uri: REDIRECT_URI,
@@ -298,7 +299,6 @@ async function ensureValidToken() {
                 },
                 body: new URLSearchParams({
                     client_id: CLIENT_ID,
-                    client_secret: CLIENT_SECRET,
                     grant_type: 'refresh_token',
                     refresh_token: tokenData.refresh_token
                 })
@@ -328,9 +328,7 @@ app.get('/api/current', async (req, res) => {
     try {
         const token = await ensureValidToken();
         const response = await fetch('https://api.spotify.com/v1/me/player', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+            headers: getSpotifyHeaders(token)
         });
 
         if (response.status === 204) {
@@ -566,9 +564,7 @@ app.get('/api/context', async (req, res) => {
         // Fetch playlist or album details
         if (contextType === 'playlist') {
             const playlistResponse = await fetch(`https://api.spotify.com/v1/playlists/${contextId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: getSpotifyHeaders(token)
             });
             
             if (playlistResponse.ok) {
@@ -579,9 +575,7 @@ app.get('/api/context', async (req, res) => {
             }
         } else if (contextType === 'album') {
             const albumResponse = await fetch(`https://api.spotify.com/v1/albums/${contextId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: getSpotifyHeaders(token)
             });
             
             if (albumResponse.ok) {
@@ -625,15 +619,23 @@ app.get('/api/context/:contextId/tracks', async (req, res) => {
 
         if (type === 'playlist') {
             const response = await fetch(`https://api.spotify.com/v1/playlists/${contextId}/tracks?limit=${limitNum}&offset=${offsetNum}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: getSpotifyHeaders(token)
             });
             
             if (!response.ok) {
                 console.error('[TRACKS] Failed to load playlist tracks:', response.status);
                 const errorText = await response.text();
                 console.error('[TRACKS] Error details:', errorText);
+                
+                // Forward Retry-After header for rate limiting (always in seconds)
+                const retryAfter = response.headers.get('retry-after');
+                if (retryAfter && response.status === 429) {
+                    const waitSeconds = Math.max(1, parseInt(retryAfter));
+                    const minutes = Math.round(waitSeconds / 60);
+                    console.error(`[TRACKS] Rate limited by Spotify. Retry after: ${waitSeconds} seconds (${minutes} minutes)`);
+                    res.set('Retry-After', waitSeconds.toString());
+                }
+                
                 return res.status(response.status).json({ 
                     error: 'Cannot access this playlist. It may be a Spotify-generated playlist.',
                     items: [],
@@ -650,13 +652,21 @@ app.get('/api/context/:contextId/tracks', async (req, res) => {
             });
         } else if (type === 'album') {
             const response = await fetch(`https://api.spotify.com/v1/albums/${contextId}/tracks?limit=${limitNum}&offset=${offsetNum}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: getSpotifyHeaders(token)
             });
             
             if (!response.ok) {
                 console.error('[TRACKS] Failed to load album tracks:', response.status);
+                
+                // Forward Retry-After header for rate limiting (always in seconds)
+                const retryAfter = response.headers.get('retry-after');
+                if (retryAfter && response.status === 429) {
+                    const waitSeconds = Math.max(1, parseInt(retryAfter));
+                    const minutes = Math.round(waitSeconds / 60);
+                    console.error(`[TRACKS] Rate limited by Spotify. Retry after: ${waitSeconds} seconds (${minutes} minutes)`);
+                    res.set('Retry-After', waitSeconds.toString());
+                }
+                
                 return res.status(response.status).json({ 
                     error: 'Cannot access this album.',
                     items: [],

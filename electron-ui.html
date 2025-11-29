@@ -468,6 +468,100 @@
 
         <!-- Setup Guide Tab -->
         <div id="tab-setup" class="tab-content active">
+            <!-- Changelog Section -->
+            <div class="status-card" style="margin-bottom: 30px;">
+                <div class="section-title">📋 Changelog</div>
+                
+                <!-- v1.1.0 -->
+                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 20px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <span style="font-size: 20px; font-weight: 700; color: #1DB954;">v1.1.0</span>
+                            <span style="background: #1DB954; color: #121212; padding: 3px 10px; border-radius: 500px; font-size: 11px; font-weight: 700; margin-left: 10px;">CURRENT</span>
+                        </div>
+                        <span style="font-size: 13px; opacity: 0.7;">November 29, 2024</span>
+                    </div>
+
+                    <div style="background: rgba(255, 196, 0, 0.1); border: 1px solid rgba(255, 196, 0, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 13px;">
+                        <strong>⚠️ Important:</strong> We've switched to PKCE authentication (no Client Secret needed). If upgrading from v1.0.0, uninstall the old version first to remove old tokens.
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">✨ New Features</h4>
+                        <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                PKCE OAuth - no Client Secret required anymore!
+                            </li>
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                "Load More" button for playlists (replaces infinite scroll)
+                            </li>
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                Configurable server port (default 3000)
+                            </li>
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                Close dialog with minimize/quit options
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">🐛 Bug Fixes</h4>
+                        <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                Fixed "Load More" button stuck in "Loading..." state
+                            </li>
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                Fixed rate limit handling and display
+                            </li>
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                Fixed iframe copy button error
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- v1.0.0 -->
+                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                        <span style="font-size: 20px; font-weight: 700; color: #1DB954;">v1.0.0</span>
+                        <span style="font-size: 13px; opacity: 0.7;">November 2024</span>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">🎉 Initial Release</h4>
+                        <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                Real-time Spotify playback control
+                            </li>
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                Touch-optimized interface for Corsair Xeneon Edge
+                            </li>
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                Playlist viewer with infinite scroll
+                            </li>
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                Customizable accent colors
+                            </li>
+                            <li style="padding: 4px 0 4px 20px; position: relative;">
+                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                System tray integration
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
             <div class="setup-step">
                 <div class="setup-step-title">
                     <span class="setup-step-number">1</span>
@@ -495,16 +589,18 @@
             <div class="setup-step">
                 <div class="setup-step-title">
                     <span class="setup-step-number">2</span>
-                    <span>Get Your Credentials</span>
+                    <span>Get Your Client ID</span>
                 </div>
                 <div class="setup-step-content">
-                    <p>After creating your app, you'll need two things:</p>
+                    <p>After creating your app, you'll need your Client ID:</p>
                     <ul>
                         <li>Click on <strong>"Settings"</strong> in your newly created app</li>
                         <li>Copy the <strong>Client ID</strong> (visible immediately)</li>
-                        <li>Click <strong>"View client secret"</strong> and copy it</li>
-                        <li>Keep these credentials safe - you'll need them in the next step</li>
+                        <li>Keep this credential safe - you'll need it in the next step</li>
                     </ul>
+                    <p style="margin-top: 10px; padding: 10px; background: rgba(29, 185, 84, 0.1); border-left: 3px solid #1DB954; border-radius: 4px;">
+                        🔒 <strong>Note:</strong> We use PKCE authentication, so you <strong>don't need a Client Secret</strong> anymore!
+                    </p>
                 </div>
             </div>
 
@@ -519,7 +615,7 @@
                         <li>Go to the <strong>Settings</strong> tab</li>
                         <li>Click <strong>"Start Server"</strong></li>
                         <li>Click <strong>"Open Setup"</strong> to open the configuration page</li>
-                        <li>Enter your <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+                        <li>Enter your <strong>Client ID</strong></li>
                         <li>Click <strong>"Save and Authenticate"</strong></li>
                         <li>Log in with your Spotify account and authorize the app</li>
                     </ul>
@@ -569,6 +665,24 @@
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
+            </div>
+
+            <div class="status-card">
+                <div class="section-title">🔌 Server Port</div>
+                <div style="background: rgba(255, 196, 0, 0.1); border: 1px solid rgba(255, 196, 0, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 13px; line-height: 1.6;">
+                    ⚠️ <strong>Note:</strong> If you're not sure what this means, it's best to stick with the default port <strong>3000</strong>. Only change this if you know another application is using port 3000 on your system.
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 13px; opacity: 0.7; display: block; margin-bottom: 5px;">Port Number</label>
+                        <input type="number" id="port-input" min="1024" max="65535" value="3000" 
+                            style="width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; color: white; font-size: 14px;">
+                    </div>
+                    <button class="btn-primary" onclick="savePort()" style="margin-top: 20px; padding: 10px 20px;">Save Port</button>
+                </div>
+                <p style="font-size: 12px; opacity: 0.6; margin-top: 8px;">
+                    Requires server restart to take effect
+                </p>
             </div>
 
             <div class="status-card">
@@ -628,7 +742,7 @@
             "><iframe 
     src="http://127.0.0.1:3000/player.html" 
 ></iframe></textarea>
-                    <button class="btn-primary" onclick="copyIframeCode()" style="width: 100%;">
+                    <button class="btn-primary" onclick="copyIframeCode(event)" style="width: 100%;">
                         📋 Copy iFrame Code
                     </button>
                 </div>
@@ -720,11 +834,37 @@
             document.getElementById('autostart-toggle').checked = settings.autostart;
             document.getElementById('app-autostart-toggle').checked = settings.appAutostart || false;
             document.getElementById('start-minimized-toggle').checked = settings.startMinimized || false;
+            document.getElementById('port-input').value = settings.port || 3000;
 
             // Load accent color for the color picker (this is only for the player widget)
             const accentColor = settings.accentColor || '#1DB954';
             document.getElementById('accent-color-picker').value = accentColor;
             // Don't apply it to the control panel - keep Spotify green here
+        }
+
+        async function savePort() {
+            const port = parseInt(document.getElementById('port-input').value);
+            
+            if (port < 1024 || port > 65535) {
+                showMessage('Port must be between 1024 and 65535', 'error');
+                return;
+            }
+
+            const settings = await window.electronAPI.getSettings();
+            settings.port = port;
+            await window.electronAPI.saveSettings(settings);
+            
+            showMessage('Port saved! Please restart the server for changes to take effect.', 'success');
+            
+            // Update iframe code
+            updateIframeCode(port);
+        }
+
+        function updateIframeCode(port) {
+            const iframeCode = `<iframe 
+    src="http://127.0.0.1:${port}/player.html" 
+></iframe>`;
+            document.getElementById('iframe-code').value = iframeCode;
         }
 
         async function toggleAutostart() {
@@ -779,6 +919,9 @@
                 startBtn.disabled = true;
                 startBtn.textContent = 'Start Server';
                 stopBtn.disabled = false;
+                
+                // Update iframe code with current port
+                updateIframeCode(status.port);
             } else {
                 statusDot.classList.remove('running');
                 statusText.textContent = 'Server stopped';
@@ -809,6 +952,26 @@
             setTimeout(() => {
                 errorDiv.style.display = 'none';
             }, 10000);
+        }
+
+        function showMessage(message, type = 'success') {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            
+            if (type === 'success') {
+                errorDiv.style.background = 'rgba(29, 185, 84, 0.1)';
+                errorDiv.style.borderColor = 'rgba(29, 185, 84, 0.3)';
+                errorDiv.style.color = '#1DB954';
+            } else {
+                errorDiv.style.background = 'rgba(255, 68, 68, 0.1)';
+                errorDiv.style.borderColor = 'rgba(255, 68, 68, 0.3)';
+                errorDiv.style.color = '#ff6666';
+            }
+            
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
         }
 
         async function startServer() {
@@ -853,7 +1016,7 @@
             window.electronAPI.openPlayer();
         }
 
-        function copyIframeCode() {
+        function copyIframeCode(event) {
             const textarea = document.getElementById('iframe-code');
             textarea.select();
             textarea.setSelectionRange(0, 99999); // For mobile devices

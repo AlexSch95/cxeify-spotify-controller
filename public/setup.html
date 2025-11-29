@@ -271,10 +271,9 @@
                 <ol>
                     <li>In your newly created app, click "<strong>Settings</strong>"</li>
                     <li>Copy the <strong>Client ID</strong></li>
-                    <li>Click "<strong>View client secret</strong>" and copy the <strong>Client Secret</strong></li>
                 </ol>
-                <div class="warning-box">
-                    ⚠️ <strong>Important:</strong> The Client Secret is confidential! Never share it publicly.
+                <div class="info-box">
+                    💡 <strong>Note:</strong> You only need the Client ID. This app uses <strong>PKCE</strong> (Proof Key for Code Exchange) for secure authorization without requiring a Client Secret.
                 </div>
             </div>
         </div>
@@ -297,11 +296,6 @@
                     <div class="form-group">
                         <label for="client-id">Client ID</label>
                         <input type="text" id="client-id" placeholder="e.g. 0e23d0d48ae04af0b1a69ffb0be95b21" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="client-secret">Client Secret</label>
-                        <input type="password" id="client-secret" placeholder="Your Client Secret" required>
                     </div>
 
                     <button type="submit" id="save-btn">Continue to Spotify Authorization</button>
@@ -329,20 +323,19 @@
             e.preventDefault();
 
             const clientId = document.getElementById('client-id').value.trim();
-            const clientSecret = document.getElementById('client-secret').value.trim();
             const saveBtn = document.getElementById('save-btn');
             const errorMsg = document.getElementById('error-message');
             const successMsg = document.getElementById('success-message');
 
             // Validierung
-            if (!clientId || !clientSecret) {
-                errorMsg.textContent = 'Bitte fülle beide Felder aus!';
+            if (!clientId) {
+                errorMsg.textContent = 'Bitte fülle das Client ID Feld aus!';
                 errorMsg.classList.remove('hidden');
                 return;
             }
 
-            if (clientId.length < 30 || clientSecret.length < 30) {
-                errorMsg.textContent = 'Die eingegebenen Credentials scheinen ungültig zu sein (zu kurz).';
+            if (clientId.length < 30) {
+                errorMsg.textContent = 'Die eingegebene Client ID scheint ungültig zu sein (zu kurz).';
                 errorMsg.classList.remove('hidden');
                 return;
             }
@@ -357,7 +350,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ clientId, clientSecret })
+                    body: JSON.stringify({ clientId })
                 });
 
                 const result = await response.json();

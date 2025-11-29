@@ -16,7 +16,8 @@ const settingsStore = new Store({
         autostart: true,
         accentColor: '#1DB954',
         appAutostart: false,
-        startMinimized: false
+        startMinimized: false,
+        port: 3000
     }
 });
 

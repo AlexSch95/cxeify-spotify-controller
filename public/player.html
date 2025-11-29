@@ -427,9 +427,7 @@
             fill: white;
         }
 
-        .playlist-icon.hidden {
-            display: none;
-        }
+        /* Playlist icon is always visible now */
 
         /* Playlist Overlay */
         .playlist-overlay {
@@ -651,6 +649,39 @@
 
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+
+        /* Load More Button */
+        .load-more-btn {
+            display: block;
+            width: calc(100% - 40px);
+            margin: 20px auto;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid var(--accent-color);
+            border-radius: 8px;
+            color: var(--accent-color);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .load-more-btn:hover {
+            background: var(--accent-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .load-more-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .load-more-btn:disabled:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--accent-color);
         }
 
     </style>
@@ -1098,27 +1129,7 @@
             totalTracks: 0
         };
 
-        async function checkPlaylistContext() {
-            try {
-                const response = await fetch('/api/context');
-                if (!response.ok) return;
-                
-                const data = await response.json();
-                
-                const playlistIcon = document.getElementById('playlist-icon');
-                if (!playlistIcon) return;
-                
-                if (data.hasContext && (data.type === 'playlist' || data.type === 'album')) {
-                    currentContext = data;
-                    playlistIcon.classList.remove('hidden');
-                } else {
-                    currentContext = null;
-                    playlistIcon.classList.add('hidden');
-                }
-            } catch (error) {
-                // Silently fail - context check is not critical
-            }
-        }
+        // Context is now checked only when opening the playlist overlay
 
         function renderTrack(track, index) {
             const trackEl = document.createElement('div');
@@ -1162,30 +1173,69 @@
                 const response = await fetch(`/api/context/${currentContext.id}/tracks?type=${currentContext.type}&offset=${playlistState.offset}&limit=20`);
                 
                 if (!response.ok) {
-                    // Don't log expected 404s for Spotify-generated playlists
-                    if (response.status !== 404) {
-                        console.error(`Error loading tracks: HTTP ${response.status}: ${response.statusText}`);
+                    const data = await response.json().catch(() => ({}));
+                    
+                    console.error(`[PLAYLIST] API Error - Status: ${response.status}, Data:`, data);
+                    
+                    // Handle rate limiting
+                    if (response.status === 429) {
+                        if (playlistState.offset === 0) {
+                            const retryAfter = response.headers.get('Retry-After');
+                            let waitMessage = '';
+                            
+                            if (retryAfter) {
+                                const seconds = parseInt(retryAfter);
+                                const minutes = Math.round(seconds / 60);
+                                const hours = Math.round(minutes / 60);
+                                
+                                if (hours >= 1) {
+                                    waitMessage = `Please wait approximately ${hours} hour${hours > 1 ? 's' : ''}.`;
+                                } else if (minutes >= 1) {
+                                    waitMessage = `Please wait approximately ${minutes} minute${minutes > 1 ? 's' : ''}.`;
+                                } else {
+                                    waitMessage = `Please wait ${seconds} seconds.`;
+                                }
+                            }
+                            
+                            tracksList.innerHTML = `
+                                <div class="playlist-loading">
+                                    Spotify has rate limited API access.<br>
+                                    ${waitMessage}<br><br>
+                                    Playback controls continue to work normally.<br><br>
+                                    <button class="load-more-btn" onclick="location.reload()" style="max-width: 200px; margin-top: 20px;">
+                                        Try Again
+                                    </button>
+                                </div>`;
+                        }
+                        playlistState.hasMore = false;
+                        playlistState.loading = false;
+                        return;
                     }
+                    
+                    // Only show Spotify-generated playlist message for actual 404s with that specific error
+                    if (response.status === 404 && data.error && data.error.includes('Spotify-generated')) {
+                        if (playlistState.offset === 0) {
+                            tracksList.innerHTML = '<div class="playlist-loading">This playlist cannot be accessed.<br>Some Spotify-generated playlists may not be available through the API.</div>';
+                        }
+                        playlistState.hasMore = false;
+                        playlistState.loading = false;
+                        return;
+                    }
+                    
+                    // For other errors, log them and show a generic error
+                    console.error(`Error loading tracks: HTTP ${response.status}: ${response.statusText}`, data);
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
                 const data = await response.json();
 
-                // Check if we got an error response
-                if (data.error) {
-                    // Don't log expected errors for Spotify-generated playlists
-                    if (!data.error.includes('Spotify-generated')) {
-                        console.error('Error loading tracks:', data.error);
-                    }
-                    throw new Error(data.error);
-                }
-
                 // Check if items exist
-                if (!data.items || !Array.isArray(data.items)) {
+                if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
                     playlistState.hasMore = false;
+                    playlistState.loading = false;
                     
-                    if (playlistState.offset === 0) {
-                        tracksList.innerHTML = '<div class="playlist-loading">This playlist cannot be accessed.<br>Some Spotify-generated playlists may not be available through the API.</div>';
+                    if (playlistState.offset === 0 && (!data.items || data.items.length === 0)) {
+                        tracksList.innerHTML = '<div class="playlist-loading">This playlist is empty.</div>';
                     }
                     return;
                 }
@@ -1210,17 +1260,37 @@
                 }
 
             } catch (error) {
-                // Only log unexpected errors (not 404s for Spotify playlists)
-                if (!error.message.includes('404')) {
-                    console.error('Error loading tracks:', error);
-                }
+                console.error('Error loading tracks:', error);
                 playlistState.hasMore = false;
                 
                 if (playlistState.offset === 0) {
-                    tracksList.innerHTML = `<div class="playlist-loading">This playlist cannot be accessed.<br>Some Spotify-generated playlists may not be available through the API.</div>`;
+                    tracksList.innerHTML = `<div class="playlist-loading">Error loading tracks. Please try again.</div>`;
                 }
             } finally {
                 playlistState.loading = false;
+                // Update or add load more button AFTER setting loading = false
+                updateLoadMoreButton();
+            }
+        }
+
+        function updateLoadMoreButton() {
+            const tracksList = document.getElementById('playlist-tracks-list');
+            let loadMoreBtn = document.getElementById('load-more-btn');
+            
+            // Remove existing button if present
+            if (loadMoreBtn) {
+                loadMoreBtn.remove();
+            }
+            
+            // Add button if there are more tracks to load
+            if (playlistState.hasMore) {
+                loadMoreBtn = document.createElement('button');
+                loadMoreBtn.id = 'load-more-btn';
+                loadMoreBtn.className = 'load-more-btn';
+                loadMoreBtn.textContent = playlistState.loading ? 'Loading...' : 'Load More';
+                loadMoreBtn.disabled = playlistState.loading;
+                loadMoreBtn.onclick = () => loadMoreTracks();
+                tracksList.appendChild(loadMoreBtn);
             }
         }
 
@@ -1230,6 +1300,7 @@
 
             // Show loading spinner while fetching fresh context
             const tracksList = document.getElementById('playlist-tracks-list');
+            
             tracksList.innerHTML = '<div class="playlist-loading"><div class="spinner"></div><div>Loading playlist...</div></div>';
 
             // Fetch fresh context data
@@ -1269,32 +1340,14 @@
                 // Load first batch
                 tracksList.innerHTML = '';
                 await loadMoreTracks();
-                
-                // Add scroll listener after content is loaded
-                tracksList.addEventListener('scroll', handlePlaylistScroll);
             } catch (error) {
                 console.error('Error opening playlist overlay:', error);
                 tracksList.innerHTML = '<div class="playlist-loading">Error loading playlist</div>';
             }
         }
 
-        function handlePlaylistScroll(e) {
-            const element = e.target;
-            const scrollBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
-            
-            // Load more when 200px from bottom
-            if (scrollBottom < 200 && playlistState.hasMore && !playlistState.loading) {
-                loadMoreTracks();
-            }
-        }
-
         function closePlaylistOverlay() {
             document.getElementById('playlist-overlay').classList.remove('active');
-            // Remove scroll listener
-            const tracksList = document.getElementById('playlist-tracks-list');
-            if (tracksList) {
-                tracksList.removeEventListener('scroll', handlePlaylistScroll);
-            }
         }
 
         async function playTrackFromPlaylist(trackUri) {
@@ -1322,16 +1375,12 @@
         // Initialize
         loadAccentColor();
         updatePlayback();
-        setInterval(updatePlayback, 1000);
+        setInterval(updatePlayback, 2000); // Every 2 seconds
         updateVolumeSliderFill(50);
-        
-        // Check for playlist context every 5 seconds
-        checkPlaylistContext();
-        setInterval(checkPlaylistContext, 5000);
     </script>
 
     <!-- Playlist Icon -->
-    <div id="playlist-icon" class="playlist-icon hidden" onclick="openPlaylistOverlay()">
+    <div id="playlist-icon" class="playlist-icon" onclick="openPlaylistOverlay()">
         <svg viewBox="0 0 24 24">
             <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
         </svg>
