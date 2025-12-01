@@ -84,7 +84,7 @@ function createWindow() {
     const settings = loadSettings();
 
     mainWindow = new BrowserWindow({
-        width: 500,
+        width: 1000,
         height: 700,
         frame: false,
         show: !settings.startMinimized,
@@ -130,7 +130,16 @@ function createWindow() {
                     tray.destroy();
                     tray = null;
                 }
-                app.quit();
+                // Stop server before quitting
+                if (spotifyServer && spotifyServer.getStatus().running) {
+                    stopServer().then(() => {
+                        mainWindow.destroy();
+                        app.quit();
+                    });
+                } else {
+                    mainWindow.destroy();
+                    app.quit();
+                }
             }
         }
     });
@@ -187,8 +196,18 @@ function updateTrayMenu(serverRunning) {
         { type: 'separator' },
         {
             label: 'Quit',
-            click: () => {
+            click: async () => {
                 app.isQuitting = true;
+                if (tray) {
+                    tray.destroy();
+                    tray = null;
+                }
+                if (spotifyServer && spotifyServer.getStatus().running) {
+                    await stopServer();
+                }
+                if (mainWindow) {
+                    mainWindow.destroy();
+                }
                 app.quit();
             }
         }
@@ -356,8 +375,10 @@ app.whenReady().then(() => {
     }
 });
 
-app.on('window-all-closed', (e) => {
-    e.preventDefault();
+app.on('window-all-closed', () => {
+    if (app.isQuitting) {
+        app.quit();
+    }
 });
 
 app.on('before-quit', async () => {

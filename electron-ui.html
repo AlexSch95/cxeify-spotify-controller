@@ -78,7 +78,7 @@
         .content-wrapper {
             flex: 1;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             overflow: hidden;
         }
 
@@ -101,24 +101,46 @@
 
         .tabs {
             display: flex;
-            gap: 0;
-            padding: 0 20px;
-            margin-top: 15px;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            flex-direction: column;
+            padding: 20px 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-right: 2px solid rgba(255, 255, 255, 0.1);
+            min-width: 200px;
+            width: 200px;
+            flex-shrink: 0;
+            justify-content: space-between;
+        }
+
+        .tab-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 20px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .tab {
-            flex: 1;
-            padding: 12px 20px;
+            width: 100%;
+            padding: 12px 15px;
+            flex-shrink: 0;
             background: transparent;
             border: none;
             color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            border-bottom: 3px solid transparent;
-            margin-bottom: -2px;
+            border-radius: 8px;
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .tab:hover {
@@ -128,7 +150,16 @@
 
         .tab.active {
             color: var(--accent-color);
-            border-bottom-color: var(--accent-color);
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 3px solid var(--accent-color);
+            padding-left: 12px;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         .tab-content {
@@ -456,194 +487,230 @@
     </div>
 
     <div class="content-wrapper">
-        <div class="header">
-            <h1>🎵 Cxeify</h1>
-            <p>Control Panel</p>
-        </div>
-
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('setup')">📖 Setup Guide</button>
-            <button class="tab" onclick="switchTab('settings')">⚙️ Settings</button>
+            <div class="tab-buttons">
+                <button class="tab active" onclick="switchTab('changelogs')">📋 Changelogs</button>
+                <button class="tab" onclick="switchTab('settings')">⚙️ Server Controls</button>
+                <button class="tab" onclick="switchTab('icue')">🎮 iCue Widget</button>
+                <button class="tab" onclick="switchTab('streamers')">📺 OBS Widget</button>
+                <button class="tab" onclick="switchTab('setup')">📖 Setup Guide</button>
+            </div>
+            <div class="sidebar-footer">
+                <div style="font-size: 11px; font-weight: 600; margin-bottom: 3px;">Cxeify v1.2.0</div>
+                <div style="font-size: 10px; opacity: 0.6;">by Machinezr</div>
+            </div>
         </div>
 
-        <!-- Setup Guide Tab -->
-        <div id="tab-setup" class="tab-content active">
-            <!-- Changelog Section -->
+        <div class="main-content">
+        <!-- Changelogs Tab -->
+        <div id="tab-changelogs" class="tab-content active">
             <div class="status-card" style="margin-bottom: 30px;">
                 <div class="section-title">📋 Changelog</div>
                 
-                <!-- v1.1.0 -->
-                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 20px; margin-bottom: 15px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-                        <div>
-                            <span style="font-size: 20px; font-weight: 700; color: #1DB954;">v1.1.0</span>
-                            <span style="background: #1DB954; color: #121212; padding: 3px 10px; border-radius: 500px; font-size: 11px; font-weight: 700; margin-left: 10px;">CURRENT</span>
-                        </div>
-                        <span style="font-size: 13px; opacity: 0.7;">November 29, 2024</span>
-                    </div>
-
-                    <div style="background: rgba(255, 196, 0, 0.1); border: 1px solid rgba(255, 196, 0, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 13px;">
-                        <strong>⚠️ Important:</strong> We've switched to PKCE authentication (no Client Secret needed). If upgrading from v1.0.0, uninstall the old version first to remove old tokens.
-                    </div>
-
-                    <div style="margin-bottom: 15px;">
-                        <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">✨ New Features</h4>
-                        <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                PKCE OAuth - no Client Secret required anymore!
-                            </li>
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                "Load More" button for playlists (replaces infinite scroll)
-                            </li>
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                Configurable server port (default 3000)
-                            </li>
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                Close dialog with minimize/quit options
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div>
-                        <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">🐛 Bug Fixes</h4>
-                        <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                Fixed "Load More" button stuck in "Loading..." state
-                            </li>
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                Fixed rate limit handling and display
-                            </li>
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                Fixed iframe copy button error
-                            </li>
-                        </ul>
-                    </div>
+                <!-- Download Info Box -->
+                <div style="background: rgba(29, 185, 84, 0.1); border: 1px solid rgba(29, 185, 84, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 20px; font-size: 13px; line-height: 1.6;">
+                    <strong>💾 Download:</strong> You can find the latest version at <a href="http://cxeify.machinezr.de" target="_blank" style="color: #1DB954; text-decoration: underline;">cxeify.machinezr.de</a>
                 </div>
+                
+                <!-- v1.2.0 -->
+                <details open style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; margin-bottom: 15px; cursor: pointer;">
+                    <summary style="padding: 20px; list-style: none; user-select: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <span style="font-size: 20px; font-weight: 700; color: #1DB954;">v1.2.0</span>
+                                <span style="background: #1DB954; color: #121212; padding: 3px 10px; border-radius: 500px; font-size: 11px; font-weight: 700; margin-left: 10px;">CURRENT</span>
+                            </div>
+                            <span style="font-size: 13px; opacity: 0.7;">December 1, 2024</span>
+                        </div>
+                    </summary>
+                    <div style="padding: 0 20px 20px 20px;">
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">✨ New Features</h4>
+                            <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    OBS Viewer Widget for streamers (/viewer.html)
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Dedicated "For Streamers" tab with setup instructions
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Auto-Refresh Delay for iFrame (0-30 seconds, default 5s)
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Improved iFrame code with setTimeout script
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">🎨 UI/UX Improvements</h4>
+                            <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Vertical sidebar navigation with tabs on the left
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Wider control panel window (1000px width)
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Separate color settings for OBS Viewer and iCUE Player
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Background opacity slider for OBS Viewer (0-100% transparency)
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Reorganized tabs: Server Controls, iCue Widget, OBS Widget
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Setup instructions moved to respective widget tabs
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Viewer widget with smooth fade animations
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Viewer auto-hides when music is paused
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Dark gradient background when no song is playing
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Volume slider color fix for "No Playback" state
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Version tag displayed in sidebar footer
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">🐛 Bug Fixes</h4>
+                            <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Fixed incomplete app closure when selecting "Close Completely"
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Server now stops properly before quitting
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Tray icon cleanup on complete shutdown
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- v1.1.0 -->
+                <details style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; margin-bottom: 15px; cursor: pointer;">
+                    <summary style="padding: 20px; list-style: none; user-select: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <span style="font-size: 20px; font-weight: 700; color: #1DB954;">v1.1.0</span>
+                            <span style="font-size: 13px; opacity: 0.7;">November 29, 2024</span>
+                        </div>
+                    </summary>
+                    <div style="padding: 0 20px 20px 20px;">
+                        <div style="background: rgba(255, 196, 0, 0.1); border: 1px solid rgba(255, 196, 0, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 13px;">
+                            <strong>⚠️ Important:</strong> We've switched to PKCE authentication (no Client Secret needed). If upgrading from v1.0.0, uninstall the old version first to remove old tokens.
+                        </div>
+
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">✨ New Features</h4>
+                            <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    PKCE OAuth - no Client Secret required anymore!
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    "Load More" button for playlists (replaces infinite scroll)
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Configurable server port (default 3000)
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Close dialog with minimize/quit options
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">🐛 Bug Fixes</h4>
+                            <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Fixed "Load More" button stuck in "Loading..." state
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Fixed rate limit handling and display
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Fixed iframe copy button error
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </details>
 
                 <!-- v1.0.0 -->
-                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-                        <span style="font-size: 20px; font-weight: 700; color: #1DB954;">v1.0.0</span>
-                        <span style="font-size: 13px; opacity: 0.7;">November 2024</span>
-                    </div>
-
-                    <div>
-                        <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">🎉 Initial Release</h4>
-                        <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                Real-time Spotify playback control
-                            </li>
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                Touch-optimized interface for Corsair Xeneon Edge
-                            </li>
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                Playlist viewer with infinite scroll
-                            </li>
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                Customizable accent colors
-                            </li>
-                            <li style="padding: 4px 0 4px 20px; position: relative;">
-                                <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
-                                System tray integration
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <div class="setup-step">
-                <div class="setup-step-title">
-                    <span class="setup-step-number">1</span>
-                    <span>Create Spotify App</span>
-                </div>
-                <div class="setup-step-content">
-                    <p>Visit the Spotify Developer Dashboard and create a new application:</p>
-                    <ul>
-                        <li>Go to <code>https://developer.spotify.com/dashboard</code></li>
-                        <li>Log in with your Spotify account</li>
-                        <li>Click <strong>"Create app"</strong></li>
-                        <li>Fill in the form:
-                            <ul>
-                                <li><strong>App name:</strong> Cxeify (or any name you like)</li>
-                                <li><strong>App description:</strong> Personal Spotify Controller</li>
-                                <li><strong>Redirect URI:</strong> <code>http://localhost:3000/callback</code></li>
-                                <li><strong>APIs used:</strong> Select Web API</li>
+                <details style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;">
+                    <summary style="padding: 20px; list-style: none; user-select: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <span style="font-size: 20px; font-weight: 700; color: #1DB954;">v1.0.0</span>
+                            <span style="font-size: 13px; opacity: 0.7;">November 28, 2024</span>
+                        </div>
+                    </summary>
+                    <div style="padding: 0 20px 20px 20px;">
+                        <div>
+                            <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">🎉 Initial Release</h4>
+                            <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Real-time Spotify playback control
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Touch-optimized interface for Corsair Xeneon Edge
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Playlist viewer with infinite scroll
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Customizable accent colors
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    System tray integration
+                                </li>
                             </ul>
-                        </li>
-                        <li>Agree to the terms and click <strong>"Save"</strong></li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="setup-step">
-                <div class="setup-step-title">
-                    <span class="setup-step-number">2</span>
-                    <span>Get Your Client ID</span>
-                </div>
-                <div class="setup-step-content">
-                    <p>After creating your app, you'll need your Client ID:</p>
-                    <ul>
-                        <li>Click on <strong>"Settings"</strong> in your newly created app</li>
-                        <li>Copy the <strong>Client ID</strong> (visible immediately)</li>
-                        <li>Keep this credential safe - you'll need it in the next step</li>
-                    </ul>
-                    <p style="margin-top: 10px; padding: 10px; background: rgba(29, 185, 84, 0.1); border-left: 3px solid #1DB954; border-radius: 4px;">
-                        🔒 <strong>Note:</strong> We use PKCE authentication, so you <strong>don't need a Client Secret</strong> anymore!
-                    </p>
-                </div>
-            </div>
-
-            <div class="setup-step">
-                <div class="setup-step-title">
-                    <span class="setup-step-number">3</span>
-                    <span>Start the Server & Configure</span>
-                </div>
-                <div class="setup-step-content">
-                    <p>Now let's connect Cxeify to your Spotify account:</p>
-                    <ul>
-                        <li>Go to the <strong>Settings</strong> tab</li>
-                        <li>Click <strong>"Start Server"</strong></li>
-                        <li>Click <strong>"Open Setup"</strong> to open the configuration page</li>
-                        <li>Enter your <strong>Client ID</strong></li>
-                        <li>Click <strong>"Save and Authenticate"</strong></li>
-                        <li>Log in with your Spotify account and authorize the app</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="setup-step">
-                <div class="setup-step-title">
-                    <span class="setup-step-number">4</span>
-                    <span>Add to iCUE</span>
-                </div>
-                <div class="setup-step-content">
-                    <p>Finally, add the player to your Corsair Xeneon Edge display:</p>
-                    <ul>
-                        <li>Open <strong>Corsair iCUE</strong> software</li>
-                        <li>Go to your <strong>Xeneon Edge</strong> device settings</li>
-                        <li>Add an <strong>iFrame widget</strong> to your display</li>
-                        <li>Copy the player URL from the <strong>Settings</strong> tab</li>
-                        <li>Paste it into the iFrame widget configuration</li>
-                        <li>Adjust size and position as desired</li>
-                    </ul>
-                    <p style="margin-top: 10px;">🎉 <strong>You're all set!</strong> Your Spotify controller should now
-                        be visible on your display.</p>
-                </div>
+                        </div>
+                    </div>
+                </details>
             </div>
         </div>
 
-        <!-- Settings Tab -->
+        <!-- Server Controls Tab -->
         <div id="tab-settings" class="tab-content">
             <div class="status-card">
                 <div class="section-title">🚀 Application Startup</div>
@@ -722,14 +789,62 @@
             </div>
 
             <div class="status-card">
-                <div class="section-title">iCUE Integration</div>
+                <div class="section-title">⚠️ Troubleshooting</div>
+                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 12px;">
+                    If something went wrong during setup or authorization, you can reset the token and start over.<br>
+                    <strong>Note:</strong> The server must be running to reset the token.
+                </p>
+                <button class="btn-danger" onclick="resetToken()" style="width: 100%; margin-bottom: 10px;">
+                    🔄 Reset Token & Restart Setup
+                </button>
+                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 12px; margin-top: 20px;">
+                    If the server won't start because the port is already in use, you can force-kill any running server instances.
+                </p>
+                <button class="btn-danger" onclick="forceKillServer()" style="width: 100%;">
+                    ⚠️ Force Kill Server Instances (Port 3000)
+                </button>
+            </div>
+        </div>
+
+        <!-- iCue Widget Tab -->
+        <div id="tab-icue" class="tab-content">
+            <div class="status-card">
+                <div class="section-title">📖 How to Add to iCUE</div>
+                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 12px;">
+                    Follow these steps to add the Spotify controller to your Corsair Xeneon Edge display:
+                </p>
+                <ol style="font-size: 13px; line-height: 1.8; opacity: 0.9; margin-left: 20px; margin-bottom: 15px;">
+                    <li>Make sure the Cxeify server is running (check <strong>Server Controls</strong> tab)</li>
+                    <li>Open <strong>Corsair iCUE</strong> software</li>
+                    <li>Go to your <strong>Xeneon Edge</strong> device settings</li>
+                    <li>Add an <strong>iFrame widget</strong> to your display</li>
+                    <li>Copy the code below and paste it into the iFrame widget</li>
+                    <li>Adjust size and position as desired</li>
+                </ol>
+            </div>
+
+            <div class="status-card">
+                <div class="section-title">iCUE Integration Code</div>
                 <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 12px;">
                     Copy this code and paste it into your Corsair Xeneon Edge iFrame widget:
                 </p>
+                
+                <div style="margin-bottom: 15px; padding: 12px; background: rgba(29, 185, 84, 0.1); border: 1px solid rgba(29, 185, 84, 0.3); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <label style="font-size: 13px; font-weight: 600;">Auto-Refresh Delay (seconds):</label>
+                        <input type="number" id="iframe-delay" min="0" max="600" value="5" 
+                            onchange="updateIframeCodeWithDelay()"
+                            style="width: 80px; padding: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; color: white; font-size: 13px;">
+                    </div>
+                    <p style="font-size: 12px; line-height: 1.5; opacity: 0.9; margin: 0;">
+                        💡 <strong>What does this do?</strong> This delays the widget loading after PC startup to ensure the Cxeify server is ready. If your widget stays white on startup, increase this value (try 10-15 seconds).
+                    </p>
+                </div>
+                
                 <div style="position: relative;">
                     <textarea id="iframe-code" readonly style="
                 width: 100%;
-                height: 80px;
+                height: 200px;
                 background: rgba(0, 0, 0, 0.3);
                 border: 1px solid rgba(255, 255, 255, 0.1);
                 border-radius: 8px;
@@ -778,29 +893,167 @@
                     player.
                 </p>
             </div>
+        </div>
+
+        <!-- OBS Widget Tab -->
+        <div id="tab-streamers" class="tab-content">
+            <div class="status-card">
+                <div class="section-title">📖 How to Add to OBS</div>
+                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 12px;">
+                    Follow these steps to add the viewer widget as an overlay in OBS:
+                </p>
+                <ol style="font-size: 13px; line-height: 1.8; opacity: 0.9; margin-left: 20px; margin-bottom: 15px;">
+                    <li>Make sure the Cxeify server is running (check <strong>Server Controls</strong> tab)</li>
+                    <li>In OBS, add a new <strong>Browser Source</strong></li>
+                    <li>Copy the Viewer URL below and paste it into the URL field</li>
+                    <li>Set dimensions (recommended: Width 500px, Height 150px)</li>
+                    <li><strong>Important:</strong> Leave the <strong>"Custom CSS"</strong> field empty</li>
+                    <li>Enable <strong>"Shutdown source when not visible"</strong> for better performance</li>
+                    <li>Position and resize the overlay as desired</li>
+                </ol>
+            </div>
 
             <div class="status-card">
-                <div class="section-title">⚠️ Troubleshooting</div>
-                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 12px;">
-                    If something went wrong during setup or authorization, you can reset the token and start over.<br>
-                    <strong>Note:</strong> The server must be running to reset the token.
+                <div class="section-title">📺 OBS Viewer Widget</div>
+                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 15px;">
+                    The viewer widget is a compact overlay perfect for OBS and streaming software. It displays your currently playing song with album art, track info, and playback progress.
                 </p>
-                <button class="btn-danger" onclick="resetToken()" style="width: 100%; margin-bottom: 10px;">
-                    🔄 Reset Token & Restart Setup
-                </button>
-                <p style="font-size: 13px; line-height: 1.6; opacity: 0.8; margin-bottom: 12px; margin-top: 20px;">
-                    If the server won't start because the port is already in use, you can force-kill any running server instances.
-                </p>
-                <button class="btn-danger" onclick="forceKillServer()" style="width: 100%;">
-                    ⚠️ Force Kill Server Instances (Port 3000)
-                </button>
-            </div>
 
-            <div class="footer">
-                Cxeify v1.0 · Made by Machinezr (Discord: machine666)
+                <div style="background: rgba(29, 185, 84, 0.1); border: 1px solid rgba(29, 185, 84, 0.3); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                    <h4 style="font-size: 14px; margin-bottom: 10px; color: #1DB954;">✨ Features</h4>
+                    <ul style="font-size: 13px; line-height: 1.8; opacity: 0.9; margin-left: 20px;">
+                        <li>Compact design optimized for streaming overlays</li>
+                        <li>Shows album art, track name, and artist</li>
+                        <li>Real-time playback progress bar</li>
+                        <li>Transparent background for clean integration</li>
+                        <li>No controls - view only</li>
+                        <li>Automatically hides when no song is playing</li>
+                    </ul>
+                </div>
+
+                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                    <h4 style="font-size: 14px; margin-bottom: 10px;">🎨 Viewer Appearance</h4>
+                    <p style="font-size: 12px; line-height: 1.5; opacity: 0.7; margin-bottom: 15px;">
+                        <strong>Note:</strong> These colors only affect the OBS Viewer Widget. Your iCUE player widget uses the accent color from the Settings tab.
+                    </p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <label style="font-size: 13px; opacity: 0.7; display: block; margin-bottom: 5px;">Accent Color (Progress Bar)</label>
+                            <input type="color" id="viewer-accent-color" value="#1DB954" onchange="saveViewerColors()"
+                                style="width: 100%; height: 40px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; cursor: pointer; background: rgba(0, 0, 0, 0.3);">
+                        </div>
+                        <div>
+                            <label style="font-size: 13px; opacity: 0.7; display: block; margin-bottom: 5px;">Background Color</label>
+                            <input type="color" id="viewer-bg-color" value="#1a1a2e" onchange="saveViewerColors()"
+                                style="width: 100%; height: 40px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; cursor: pointer; background: rgba(0, 0, 0, 0.3);">
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 13px; opacity: 0.7; display: block; margin-bottom: 8px;">Background Opacity</label>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <input type="range" id="viewer-bg-opacity" min="0" max="100" value="100" onchange="saveViewerColors()"
+                                style="flex: 1; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.2); cursor: pointer;">
+                            <span id="opacity-value" style="font-size: 13px; font-weight: 600; min-width: 45px; text-align: right;">100%</span>
+                        </div>
+                        <p style="font-size: 11px; opacity: 0.6; margin-top: 5px; margin-bottom: 0;">0% = fully transparent, 100% = fully opaque</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-size: 13px; opacity: 0.7; display: block; margin-bottom: 5px;">Text Color</label>
+                        <input type="color" id="viewer-text-color" value="#ffffff" onchange="saveViewerColors()"
+                            style="width: 100%; height: 40px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; cursor: pointer; background: rgba(0, 0, 0, 0.3);">
+                    </div>
+                    
+                    <p style="font-size: 12px; line-height: 1.5; opacity: 0.6; margin-top: 10px;">
+                        💡 After changing colors, refresh the viewer in OBS to see the changes.
+                    </p>
+                </div>
+
+                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                    <h4 style="font-size: 14px; margin-bottom: 10px;">📋 Viewer URL</h4>
+                    <div style="position: relative;">
+                        <input type="text" id="viewer-url" readonly value="http://127.0.0.1:3000/viewer.html"
+                            style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; color: var(--accent-color); font-family: 'Courier New', monospace; font-size: 13px; margin-bottom: 10px;">
+                        <button class="btn-primary" onclick="copyViewerUrl()" style="width: 100%;">
+                            📋 Copy Viewer URL
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
+
+        <!-- Setup Guide Tab -->
+        <div id="tab-setup" class="tab-content">
+            <div class="setup-step">
+                <div class="setup-step-title">
+                    <span class="setup-step-number">1</span>
+                    <span>Create Spotify App</span>
+                </div>
+                <div class="setup-step-content">
+                    <p>Visit the Spotify Developer Dashboard and create a new application:</p>
+                    <ul>
+                        <li>Go to <code>https://developer.spotify.com/dashboard</code></li>
+                        <li>Log in with your Spotify account</li>
+                        <li>Click <strong>"Create app"</strong></li>
+                        <li>Fill in the form:
+                            <ul>
+                                <li><strong>App name:</strong> Cxeify (or any name you like)</li>
+                                <li><strong>App description:</strong> Personal Spotify Controller</li>
+                                <li><strong>Redirect URI:</strong> <code>http://localhost:3000/callback</code></li>
+                                <li><strong>APIs used:</strong> Select Web API</li>
+                            </ul>
+                        </li>
+                        <li>Agree to the terms and click <strong>"Save"</strong></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="setup-step">
+                <div class="setup-step-title">
+                    <span class="setup-step-number">2</span>
+                    <span>Get Your Client ID</span>
+                </div>
+                <div class="setup-step-content">
+                    <p>After creating your app, you'll need your Client ID:</p>
+                    <ul>
+                        <li>Click on <strong>"Settings"</strong> in your newly created app</li>
+                        <li>Copy the <strong>Client ID</strong> (visible immediately)</li>
+                        <li>Keep this credential safe - you'll need it in the next step</li>
+                    </ul>
+                    <p style="margin-top: 10px; padding: 10px; background: rgba(29, 185, 84, 0.1); border-left: 3px solid #1DB954; border-radius: 4px;">
+                        🔒 <strong>Note:</strong> We use PKCE authentication, so you <strong>don't need a Client Secret</strong> anymore!
+                    </p>
+                </div>
+            </div>
+
+            <div class="setup-step">
+                <div class="setup-step-title">
+                    <span class="setup-step-number">3</span>
+                    <span>Start the Server & Configure</span>
+                </div>
+                <div class="setup-step-content">
+                    <p>Now let's connect Cxeify to your Spotify account:</p>
+                    <ul>
+                        <li>Go to the <strong>Settings</strong> tab</li>
+                        <li>Click <strong>"Start Server"</strong></li>
+                        <li>Click <strong>"Open Setup"</strong> to open the configuration page</li>
+                        <li>Enter your <strong>Client ID</strong></li>
+                        <li>Click <strong>"Save and Authenticate"</strong></li>
+                        <li>Log in with your Spotify account and authorize the app</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="status-card" style="margin-top: 20px; background: rgba(29, 185, 84, 0.1); border: 1px solid rgba(29, 185, 84, 0.3);">
+                <p style="font-size: 13px; line-height: 1.6; opacity: 0.9;">
+                    🎉 <strong>Setup Complete!</strong> Your server is now configured. Visit the <strong>iCue Widget</strong> or <strong>OBS Widget</strong> tabs to learn how to use the widgets.
+                </p>
+            </div>
+        </div>
+        </div> <!-- end main-content -->
+    </div> <!-- end content-wrapper -->
 
     <script>
         // Tab switching
@@ -835,11 +1088,25 @@
             document.getElementById('app-autostart-toggle').checked = settings.appAutostart || false;
             document.getElementById('start-minimized-toggle').checked = settings.startMinimized || false;
             document.getElementById('port-input').value = settings.port || 3000;
+            document.getElementById('iframe-delay').value = settings.iframeDelay || 5;
 
             // Load accent color for the color picker (this is only for the player widget)
             const accentColor = settings.accentColor || '#1DB954';
             document.getElementById('accent-color-picker').value = accentColor;
             // Don't apply it to the control panel - keep Spotify green here
+            
+            // Load viewer colors
+            document.getElementById('viewer-accent-color').value = settings.viewerAccentColor || '#1DB954';
+            document.getElementById('viewer-bg-color').value = settings.viewerBgColor || '#1a1a2e';
+            document.getElementById('viewer-text-color').value = settings.viewerTextColor || '#ffffff';
+            const opacity = settings.viewerBgOpacity !== undefined ? settings.viewerBgOpacity : 100;
+            document.getElementById('viewer-bg-opacity').value = opacity;
+            document.getElementById('opacity-value').textContent = opacity + '%';
+            
+            // Add event listener for opacity slider to update display
+            document.getElementById('viewer-bg-opacity').addEventListener('input', function(e) {
+                document.getElementById('opacity-value').textContent = e.target.value + '%';
+            });
         }
 
         async function savePort() {
@@ -861,10 +1128,41 @@
         }
 
         function updateIframeCode(port) {
-            const iframeCode = `<iframe 
-    src="http://127.0.0.1:${port}/player.html" 
-></iframe>`;
+            const delay = document.getElementById('iframe-delay').value || 5;
+            const delayMs = delay * 1000;
+            const iframeCode = `<div id="iframe-container">
+</div>
+
+<script>
+    window.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            const container = document.getElementById('iframe-container');
+            container.innerHTML = '';
+            
+            const iframe = document.createElement('iframe');
+            iframe.src = "http://127.0.0.1:${port}/player.html";
+            iframe.style.width = "100%";
+            iframe.style.height = "100%";
+            iframe.style.border = "none";
+            
+            container.appendChild(iframe);
+        }, ${delayMs});
+    });
+<` + `/script>`;
             document.getElementById('iframe-code').value = iframeCode;
+            
+            // Update viewer URL
+            const viewerUrl = `http://127.0.0.1:${port}/viewer.html`;
+            const viewerUrlInput = document.getElementById('viewer-url');
+            if (viewerUrlInput) {
+                viewerUrlInput.value = viewerUrl;
+            }
+        }
+        
+        function updateIframeCodeWithDelay() {
+            const settings = window.electronAPI.getSettings();
+            const port = settings.port || 3000;
+            updateIframeCode(port);
         }
 
         async function toggleAutostart() {
@@ -1035,6 +1333,36 @@
             }).catch(err => {
                 showError('Failed to copy: ' + err.message);
             });
+        }
+
+        function copyViewerUrl() {
+            const input = document.getElementById('viewer-url');
+            input.select();
+            input.setSelectionRange(0, 99999);
+
+            navigator.clipboard.writeText(input.value).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                btn.style.background = 'linear-gradient(135deg, #1DB954, #1ed760)';
+
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            }).catch(err => {
+                showError('Failed to copy: ' + err.message);
+            });
+        }
+
+        async function saveViewerColors() {
+            const settings = await window.electronAPI.getSettings();
+            settings.viewerAccentColor = document.getElementById('viewer-accent-color').value;
+            settings.viewerBgColor = document.getElementById('viewer-bg-color').value;
+            settings.viewerTextColor = document.getElementById('viewer-text-color').value;
+            settings.viewerBgOpacity = parseInt(document.getElementById('viewer-bg-opacity').value);
+            await window.electronAPI.saveSettings(settings);
+            showMessage('Viewer colors saved! Refresh the viewer in OBS to see changes.', 'success');
         }
 
         async function resetToken() {

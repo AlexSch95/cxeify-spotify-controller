@@ -201,6 +201,42 @@ app.get('/api/accent-color', (req, res) => {
     }
 });
 
+// desc: Get all settings including viewer colors
+app.get('/api/settings', (req, res) => {
+    try {
+        const settingsPath = path.join(DATA_DIR, 'settings.json');
+        
+        if (fs.existsSync(settingsPath)) {
+            const fileContent = fs.readFileSync(settingsPath, 'utf8');
+            const settings = JSON.parse(fileContent);
+            res.json({
+                accentColor: settings.accentColor || '#1DB954',
+                viewerAccentColor: settings.viewerAccentColor || '#1DB954',
+                viewerBgColor: settings.viewerBgColor || '#1a1a2e',
+                viewerTextColor: settings.viewerTextColor || '#ffffff',
+                viewerBgOpacity: settings.viewerBgOpacity !== undefined ? settings.viewerBgOpacity : 100
+            });
+        } else {
+            res.json({
+                accentColor: '#1DB954',
+                viewerAccentColor: '#1DB954',
+                viewerBgColor: '#1a1a2e',
+                viewerTextColor: '#ffffff',
+                viewerBgOpacity: 100
+            });
+        }
+    } catch (error) {
+        console.error('[SETTINGS] Error reading settings:', error);
+        res.json({
+            accentColor: '#1DB954',
+            viewerAccentColor: '#1DB954',
+            viewerBgColor: '#1a1a2e',
+            viewerTextColor: '#ffffff',
+            viewerBgOpacity: 100
+        });
+    }
+});
+
 // desc: Delete saved OAuth token for troubleshooting
 app.post('/api/reset-token', (req, res) => {
     try {

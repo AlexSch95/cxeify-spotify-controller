@@ -34,3 +34,6 @@ desktop.ini
 # Temporary files
 *.tmp
 *.temp
+
+# changelogs
+changelog*.md
