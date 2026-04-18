@@ -654,7 +654,8 @@ app.get('/api/context/:contextId/tracks', async (req, res) => {
         const limitNum = parseInt(limit);
 
         if (type === 'playlist') {
-            const response = await fetch(`https://api.spotify.com/v1/playlists/${contextId}/tracks?limit=${limitNum}&offset=${offsetNum}`, {
+            // Changed from /tracks to /items per Spotify API February 2026 update
+            const response = await fetch(`https://api.spotify.com/v1/playlists/${contextId}/items?limit=${limitNum}&offset=${offsetNum}`, {
                 headers: getSpotifyHeaders(token)
             });
             
@@ -681,8 +682,14 @@ app.get('/api/context/:contextId/tracks', async (req, res) => {
             }
             
             const data = await response.json();
+            // Normalize response: Spotify renamed 'track' to 'item' in Feb 2026
+            // Map back to 'track' for frontend backward compatibility
+            const normalizedItems = (data.items || []).map(item => ({
+                ...item,
+                track: item.item || item.track  // Support both old and new format
+            }));
             res.json({
-                items: data.items || [],
+                items: normalizedItems,
                 total: data.total || 0,
                 hasMore: data.next !== null
             });

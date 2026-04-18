@@ -42,7 +42,7 @@ The app runs a local Express server that communicates with Spotify's Web API to 
 **Note**: A detailed step-by-step setup guide is available in the app under the **Setup Guide** tab.
 
 1. Create a Spotify App at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
-   - Set the redirect URI to: `http://localhost:3000/callback`
+   - Set the redirect URI to: `http://127.0.0.1:3000/callback`
    - Note your Client ID and Client Secret
 
 2. Open Cxeify and go to the **Settings** tab

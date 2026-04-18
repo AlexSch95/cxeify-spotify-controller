@@ -1001,7 +1001,7 @@
                             <ul>
                                 <li><strong>App name:</strong> Cxeify (or any name you like)</li>
                                 <li><strong>App description:</strong> Personal Spotify Controller</li>
-                                <li><strong>Redirect URI:</strong> <code>http://localhost:3000/callback</code></li>
+                                <li><strong>Redirect URI:</strong> <code>http://127.0.0.1:3000/callback</code></li>
                                 <li><strong>APIs used:</strong> Select Web API</li>
                             </ul>
                         </li>
@@ -1371,11 +1371,7 @@
             }
 
             try {
-                const response = await fetch('http://127.0.0.1:3000/api/reset-token', {
-                    method: 'POST'
-                });
-
-                const result = await response.json();
+                const result = await window.electronAPI.resetToken();
 
                 if (result.success) {
                     alert('✓ Token reset successfully! Please complete the setup again.');

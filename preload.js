@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Force kill server
     forceKillServer: () => ipcRenderer.invoke('force-kill-server'),
     
+    // Reset OAuth token directly (works even when server is not running)
+    resetToken: () => ipcRenderer.invoke('reset-token'),
+    
     // Server status listener
     onServerStatus: (callback) => {
         ipcRenderer.on('server-status', (event, data) => callback(data));

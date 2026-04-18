@@ -301,6 +301,22 @@ ipcMain.handle('set-app-autostart', async (event, enabled) => {
     }
 });
 
+// desc: Reset OAuth token directly (works even when server is not running)
+ipcMain.handle('reset-token', async () => {
+    try {
+        if (storage.secure.has('token')) {
+            storage.secure.delete('token');
+            console.log('Token deleted from secure store');
+            return { success: true, message: 'Token reset successfully' };
+        } else {
+            return { success: true, message: 'No token to delete' };
+        }
+    } catch (error) {
+        console.error('Error deleting token:', error);
+        return { success: false, error: 'Failed to reset token: ' + error.message };
+    }
+});
+
 ipcMain.handle('force-kill-server', async () => {
     try {
         const { execSync } = require('child_process');

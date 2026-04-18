@@ -496,7 +496,7 @@
             <div class="logo">Cxeify</div>
             <p class="tagline">Spotify Controller for Corsair Xeneon Edge</p>
             <div class="header-buttons">
-                <a href="https://github.com/AlexSch95/cxeify-spotify-controller/releases/download/v1.2.0/Cxeify.Setup.1.2.0.exe" class="download-btn">Download v1.2.0</a>
+                <a href="https://github.com/AlexSch95/cxeify-spotify-controller/releases/download/v1.3.0/Cxeify.Setup.1.3.0.exe" class="download-btn">Download v1.3.0</a>
                 <a href="https://github.com/AlexSch95/cxeify-spotify-controller" class="github-btn" target="_blank">View on GitHub</a>
             </div>
             
@@ -505,12 +505,38 @@
                     View Changelog
                 </button>
                 <div class="changelog-content" id="changelogContent">
+                    <!-- v1.3.0 -->
+                    <div class="version-block">
+                        <div class="version-header">
+                            <div>
+                                <span class="version-title">v1.3.0</span>
+                                <span class="version-badge">LATEST</span>
+                            </div>
+                            <span class="version-date">April 18, 2026</span>
+                        </div>
+
+                        <div class="changelog-category">
+                            <h4>🔄 Spotify API Migration</h4>
+                            <ul class="changelog-list">
+                                <li><strong>Playlist Items Endpoint</strong> - Updated from deprecated <code>/playlists/{id}/tracks</code> to new <code>/playlists/{id}/items</code> endpoint</li>
+                                <li><strong>Response Field Normalization</strong> - Added backward-compatible mapping for renamed fields to maintain frontend compatibility</li>
+                            </ul>
+                        </div>
+
+                        <div class="changelog-category">
+                            <h4>🐛 Bug Fixes</h4>
+                            <ul class="changelog-list">
+                                <li><strong>Token Reset Fix</strong> - Token reset now works via direct IPC instead of server API, fixing "Failed to fetch" errors when server is not running</li>
+                                <li><strong>Callback URL Consistency</strong> - Updated setup instructions to use <code>http://127.0.0.1:3000/callback</code> consistently</li>
+                            </ul>
+                        </div>
+                    </div>
+
                     <!-- v1.2.0 -->
                     <div class="version-block">
                         <div class="version-header">
                             <div>
                                 <span class="version-title">v1.2.0</span>
-                                <span class="version-badge">LATEST</span>
                             </div>
                             <span class="version-date">December 1, 2024</span>
                         </div>
@@ -624,6 +650,7 @@
 
                     <div class="old-versions">
                         <h4>Previous Versions</h4>
+                        <a href="https://github.com/AlexSch95/cxeify-spotify-controller/releases/download/v1.2.0/Cxeify.Setup.1.2.0.exe" class="old-version-link">Download v1.2.0</a>
                         <a href="https://github.com/AlexSch95/cxeify-spotify-controller/releases/download/v1.1.0/Cxeify.Setup.1.1.0.exe" class="old-version-link">Download v1.1.0</a>
                         <a href="https://github.com/AlexSch95/cxeify-spotify-controller/releases/download/v1.0.0/Cxeify.Setup.1.0.0.exe" class="old-version-link">Download v1.0.0</a>
                     </div>
