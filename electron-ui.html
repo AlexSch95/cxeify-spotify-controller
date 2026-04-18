@@ -496,7 +496,7 @@
                 <button class="tab" onclick="switchTab('setup')">📖 Setup Guide</button>
             </div>
             <div class="sidebar-footer">
-                <div style="font-size: 11px; font-weight: 600; margin-bottom: 3px;">Cxeify v1.2.0</div>
+                <div style="font-size: 11px; font-weight: 600; margin-bottom: 3px;">Cxeify v1.3.0</div>
                 <div style="font-size: 10px; opacity: 0.6;">by Machinezr</div>
             </div>
         </div>
@@ -512,13 +512,53 @@
                     <strong>💾 Download:</strong> You can find the latest version at <a href="http://cxeify.machinezr.de" target="_blank" style="color: #1DB954; text-decoration: underline;">cxeify.machinezr.de</a>
                 </div>
                 
-                <!-- v1.2.0 -->
+                <!-- v1.3.0 -->
                 <details open style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; margin-bottom: 15px; cursor: pointer;">
                     <summary style="padding: 20px; list-style: none; user-select: none;">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <div>
-                                <span style="font-size: 20px; font-weight: 700; color: #1DB954;">v1.2.0</span>
+                                <span style="font-size: 20px; font-weight: 700; color: #1DB954;">v1.3.0</span>
                                 <span style="background: #1DB954; color: #121212; padding: 3px 10px; border-radius: 500px; font-size: 11px; font-weight: 700; margin-left: 10px;">CURRENT</span>
+                            </div>
+                            <span style="font-size: 13px; opacity: 0.7;">April 18, 2026</span>
+                        </div>
+                    </summary>
+                    <div style="padding: 0 20px 20px 20px;">
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">🔄 Spotify API Migration</h4>
+                            <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Updated playlist endpoint from /tracks to /items (Spotify API Feb 2026)
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Added response field normalization for backward compatibility
+                                </li>
+                            </ul>
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="font-size: 14px; color: #1DB954; margin-bottom: 8px; font-weight: 600;">🐛 Bug Fixes</h4>
+                            <ul style="list-style: none; padding-left: 0; font-size: 13px; opacity: 0.8;">
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Token reset now works via IPC (no server dependency)
+                                </li>
+                                <li style="padding: 4px 0 4px 20px; position: relative;">
+                                    <span style="position: absolute; left: 5px; color: #1DB954; font-weight: 700;">•</span>
+                                    Fixed callback URL consistency (127.0.0.1 instead of localhost)
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </details>
+                
+                <!-- v1.2.0 -->
+                <details style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; margin-bottom: 15px; cursor: pointer;">
+                    <summary style="padding: 20px; list-style: none; user-select: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <span style="font-size: 20px; font-weight: 700; color: #1DB954;">v1.2.0</span>
                             </div>
                             <span style="font-size: 13px; opacity: 0.7;">December 1, 2024</span>
                         </div>
