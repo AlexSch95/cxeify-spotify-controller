@@ -397,13 +397,12 @@
             transform: translateY(0);
         }
 
-        /* Playlist Icon */
-        .playlist-icon {
+        /* Overlay Icons (Playlist + Queue) */
+        .overlay-icon {
             position: fixed;
             top: 20px;
-            right: 20px;
-            width: clamp(40px, 6vw, 60px);
-            height: clamp(40px, 6vw, 60px);
+            width: clamp(50px, 7vw, 80px);
+            height: clamp(50px, 7vw, 80px);
             background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(10px);
             border-radius: 50%;
@@ -416,13 +415,21 @@
             border: 2px solid rgba(255, 255, 255, 0.1);
         }
 
-        .playlist-icon:hover {
+        #playlist-icon {
+            right: 20px;
+        }
+
+        #queue-icon {
+            right: calc(30px + clamp(50px, 7vw, 80px));
+        }
+
+        .overlay-icon:hover {
             background: rgba(0, 0, 0, 0.7);
             transform: scale(1.1);
             border-color: var(--accent-color);
         }
 
-        .playlist-icon svg {
+        .overlay-icon svg {
             width: 60%;
             height: 60%;
             fill: white;
@@ -652,6 +659,116 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Scope Re-auth Banner */
+        .scope-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 180, 0, 0.95);
+            color: #1a1a1a;
+            padding: clamp(10px, 1.5vh, 14px) clamp(16px, 3vw, 24px);
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(12px, 2vw, 20px);
+            font-weight: 600;
+            font-size: clamp(13px, 1.8vw, 16px);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+            flex-wrap: wrap;
+            text-align: center;
+        }
+
+        .scope-banner a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .scope-banner button {
+            padding: clamp(6px, 1vh, 10px) clamp(14px, 2vw, 22px);
+            background: #1a1a1a;
+            color: #fff;
+            border: none;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: inherit;
+            font-family: inherit;
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+        .scope-banner button:hover {
+            background: #000;
+            transform: scale(1.04);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: clamp(30px, 6vh, 60px);
+            transform: translate(-50%, 30px);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            padding: clamp(10px, 1.8vh, 16px) clamp(20px, 3vw, 30px);
+            border-radius: 999px;
+            font-size: clamp(14px, 2vw, 18px);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 500;
+            white-space: nowrap;
+        }
+
+        .toast.visible {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+
+        .toast svg {
+            width: clamp(18px, 2.5vw, 22px);
+            height: clamp(18px, 2.5vw, 22px);
+            flex-shrink: 0;
+            fill: var(--accent-color);
+        }
+
+        /* Queue Tabs */
+        .queue-tabs {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .queue-tab {
+            padding: 8px 18px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.55);
+            font-size: clamp(14px, 2.5vw, 18px);
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .queue-tab:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .queue-tab.active {
+            color: #ffffff;
+            border-bottom-color: var(--accent-color);
+        }
+
         /* Load More Button */
         .load-more-btn {
             display: block;
@@ -715,6 +832,7 @@
                     <span id="duration">0:00</span>
                 </div>
                 <div class="controls">
+                    <div class="control-btn control-btn-small" aria-hidden="true" style="visibility: hidden; background: transparent; box-shadow: none;"></div>
                     <button id="shuffle-btn" class="control-btn control-btn-small" title="Shuffle">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path
@@ -744,6 +862,14 @@
                             <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
                         </svg>
                         <span id="repeat-one" class="repeat-one-indicator hidden">1</span>
+                    </button>
+                    <button id="like-btn" class="control-btn control-btn-small" title="Add to Liked Songs">
+                        <svg id="like-icon-outline" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z" />
+                        </svg>
+                        <svg id="like-icon-filled" class="hidden" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
                     </button>
                 </div>
                 <div class="volume-container">
@@ -850,6 +976,65 @@
         const progressFill = document.getElementById('progress-fill');
         const playIcon = document.getElementById('play-icon');
         const pauseIcon = document.getElementById('pause-icon');
+        const likeBtn = document.getElementById('like-btn');
+        const likeIconOutline = document.getElementById('like-icon-outline');
+        const likeIconFilled = document.getElementById('like-icon-filled');
+
+        let currentTrackId = null;
+        let currentTrackSaved = false;
+
+        // desc: Fetch saved state for a track and update the like button
+        async function refreshLikeState(trackId) {
+            if (!trackId) {
+                currentTrackSaved = false;
+                setLikeButtonState(false);
+                return;
+            }
+            try {
+                const response = await fetch(`/api/track-saved/${trackId}`);
+                if (!response.ok) return;
+                const data = await response.json();
+                currentTrackSaved = !!data.saved;
+                setLikeButtonState(currentTrackSaved);
+            } catch (error) {
+                console.error('Error checking like state:', error);
+            }
+        }
+
+        // desc: Brief centered popup used for like/unlike feedback
+        let toastTimer = null;
+        function showToast(message, iconType) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-message');
+
+            const heartFilled = '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>';
+            const heartBroken = '<path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/>';
+
+            icon.innerHTML = iconType === 'removed' ? heartBroken : heartFilled;
+            msg.textContent = message;
+            toast.classList.add('visible');
+
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 2000);
+        }
+
+        // desc: Swap heart icon between outline and filled
+        function setLikeButtonState(saved) {
+            if (saved) {
+                likeBtn.classList.add('active');
+                likeIconOutline.classList.add('hidden');
+                likeIconFilled.classList.remove('hidden');
+                likeBtn.title = 'Remove from Liked Songs';
+            } else {
+                likeBtn.classList.remove('active');
+                likeIconOutline.classList.remove('hidden');
+                likeIconFilled.classList.add('hidden');
+                likeBtn.title = 'Add to Liked Songs';
+            }
+        }
 
         // desc: Update player UI with current Spotify playback state
         async function updatePlayback() {
@@ -880,6 +1065,8 @@
                     trackName.textContent = 'No Playback';
                     artistName.textContent = 'Start Spotify on a device';
                     albumImage.src = '';
+                    currentTrackId = null;
+                    setLikeButtonState(false);
                     
                     // Set dark gradient background when no playback
                     const styleSheet = document.styleSheets[0];
@@ -897,6 +1084,11 @@
                 }
 
                 currentPlaybackState = data;
+
+                if (data.item.id !== currentTrackId) {
+                    currentTrackId = data.item.id;
+                    refreshLikeState(currentTrackId);
+                }
 
                 trackName.textContent = data.item.name;
                 artistName.textContent = data.item.artists.map(a => a.name).join(', ');
@@ -1023,6 +1215,131 @@
 
             setTimeout(updatePlayback, 300);
         });
+
+        likeBtn.addEventListener('click', async () => {
+            if (!currentTrackId) return;
+            const newSaved = !currentTrackSaved;
+            setLikeButtonState(newSaved); // optimistic update
+            try {
+                const response = await fetch('/api/track-saved', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: currentTrackId, saved: newSaved })
+                });
+                if (!response.ok) {
+                    setLikeButtonState(currentTrackSaved);
+                    return;
+                }
+                currentTrackSaved = newSaved;
+                showToast(newSaved ? 'Added to Liked Songs' : 'Removed from Liked Songs', newSaved ? 'added' : 'removed');
+            } catch (error) {
+                console.error('Error toggling like:', error);
+                setLikeButtonState(currentTrackSaved);
+            }
+        });
+
+        // Queue overlay
+        let activeQueueTab = 'queue';
+
+        function renderQueueTrack(track, index) {
+            const trackEl = document.createElement('div');
+            trackEl.className = 'playlist-track';
+            trackEl.innerHTML = `
+                <div class="playlist-track-number">${index + 1}</div>
+                <img class="playlist-track-image" src="${track.album?.images?.[0]?.url || ''}" alt="">
+                <div class="playlist-track-info">
+                    <div class="playlist-track-name">${track.name || 'Unknown'}</div>
+                    <div class="playlist-track-artist">${track.artists?.map(a => a.name).join(', ') || 'Unknown'}</div>
+                </div>
+            `;
+            return trackEl;
+        }
+
+        async function loadQueueList() {
+            const tracksList = document.getElementById('queue-tracks-list');
+            tracksList.innerHTML = '<div class="playlist-loading"><div class="spinner"></div><div>Loading queue...</div></div>';
+
+            try {
+                const response = await fetch('/api/queue');
+                if (!response.ok) {
+                    tracksList.innerHTML = '<div class="playlist-loading">Error loading queue</div>';
+                    return;
+                }
+                const data = await response.json();
+                const queue = data.queue || [];
+                tracksList.innerHTML = '';
+
+                if (queue.length === 0) {
+                    tracksList.innerHTML = '<div class="playlist-loading">Queue is empty</div>';
+                    return;
+                }
+
+                queue.forEach((track, idx) => {
+                    if (!track) return;
+                    tracksList.appendChild(renderQueueTrack(track, idx));
+                });
+            } catch (error) {
+                console.error('Error loading queue:', error);
+                tracksList.innerHTML = '<div class="playlist-loading">Error loading queue</div>';
+            }
+        }
+
+        async function loadHistoryList() {
+            const tracksList = document.getElementById('queue-tracks-list');
+            tracksList.innerHTML = '<div class="playlist-loading"><div class="spinner"></div><div>Loading history...</div></div>';
+
+            try {
+                const response = await fetch('/api/recently-played?limit=30');
+                if (!response.ok) {
+                    tracksList.innerHTML = '<div class="playlist-loading">Error loading history</div>';
+                    return;
+                }
+                const data = await response.json();
+                const items = data.items || [];
+                tracksList.innerHTML = '';
+
+                if (items.length === 0) {
+                    tracksList.innerHTML = '<div class="playlist-loading">No recently played tracks</div>';
+                    return;
+                }
+
+                items.forEach((item, idx) => {
+                    if (!item || !item.track) return;
+                    tracksList.appendChild(renderQueueTrack(item.track, idx));
+                });
+            } catch (error) {
+                console.error('Error loading history:', error);
+                tracksList.innerHTML = '<div class="playlist-loading">Error loading history</div>';
+            }
+        }
+
+        function switchQueueTab(tab) {
+            if (activeQueueTab === tab) return;
+            activeQueueTab = tab;
+
+            document.querySelectorAll('.queue-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+
+            if (tab === 'queue') {
+                loadQueueList();
+            } else {
+                loadHistoryList();
+            }
+        }
+
+        function openQueueOverlay() {
+            document.getElementById('queue-overlay').classList.add('active');
+            if (activeQueueTab === 'queue') {
+                loadQueueList();
+            } else {
+                loadHistoryList();
+            }
+        }
+
+        function closeQueueOverlay() {
+            document.getElementById('queue-overlay').classList.remove('active');
+        }
 
         // desc: Progress bar drag/touch handlers for seeking
         let isDraggingProgress = false;
@@ -1386,15 +1703,82 @@
             }
         }
 
+        // desc: Warn the user if the saved token is missing newly required scopes
+        let scopePollTimer = null;
+
+        async function checkScopeStatus() {
+            try {
+                const response = await fetch('/api/scope-status');
+                if (!response.ok) return false;
+                const data = await response.json();
+                const banner = document.getElementById('scope-banner');
+                const message = document.getElementById('scope-banner-message');
+                if (data.authenticated && !data.ok && data.missing && data.missing.length) {
+                    if (!banner.dataset.waiting) {
+                        message.textContent = `New features need additional Spotify permissions (${data.missing.length} missing).`;
+                    }
+                    banner.classList.remove('hidden');
+                    return false;
+                } else {
+                    banner.classList.add('hidden');
+                    delete banner.dataset.waiting;
+                    return true;
+                }
+            } catch (error) {
+                console.error('Error checking scope status:', error);
+                return false;
+            }
+        }
+
+        // desc: After user clicks Re-authorize (opens in default browser), poll until scopes land
+        function onReauthClicked() {
+            const banner = document.getElementById('scope-banner');
+            const message = document.getElementById('scope-banner-message');
+            banner.dataset.waiting = '1';
+            message.textContent = 'Waiting for authorization in your browser...';
+
+            clearInterval(scopePollTimer);
+            scopePollTimer = setInterval(async () => {
+                const ok = await checkScopeStatus();
+                if (ok) {
+                    clearInterval(scopePollTimer);
+                    scopePollTimer = null;
+                    updatePlayback();
+                }
+            }, 2000);
+        }
+
         // Initialize
         loadAccentColor();
+        checkScopeStatus();
         updatePlayback();
         setInterval(updatePlayback, 2000); // Every 2 seconds
         updateVolumeSliderFill(50);
     </script>
 
+    <!-- Re-auth banner (shown when saved token is missing required scopes) -->
+    <div id="scope-banner" class="scope-banner hidden">
+        <span id="scope-banner-message">New features need additional Spotify permissions.</span>
+        <a id="scope-banner-link" href="/auth/start?force=1" target="_blank" rel="noopener" onclick="onReauthClicked()">
+            <button>Re-authorize</button>
+        </a>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast">
+        <svg id="toast-icon" viewBox="0 0 24 24"></svg>
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- Queue Icon -->
+    <div id="queue-icon" class="overlay-icon" onclick="openQueueOverlay()" title="Queue">
+        <svg viewBox="0 0 24 24">
+            <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM22 11l-6 4.5V7z"/>
+        </svg>
+    </div>
+
     <!-- Playlist Icon -->
-    <div id="playlist-icon" class="playlist-icon" onclick="openPlaylistOverlay()">
+    <div id="playlist-icon" class="overlay-icon" onclick="openPlaylistOverlay()" title="Playlist">
         <svg viewBox="0 0 24 24">
             <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
         </svg>
@@ -1418,6 +1802,24 @@
         </div>
         <div id="playlist-tracks-list" class="playlist-tracks">
             <!-- Tracks will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Queue Overlay -->
+    <div id="queue-overlay" class="playlist-overlay">
+        <div class="playlist-header">
+            <div class="queue-tabs">
+                <button class="queue-tab active" data-tab="queue" onclick="switchQueueTab('queue')">Up Next</button>
+                <button class="queue-tab" data-tab="history" onclick="switchQueueTab('history')">History</button>
+            </div>
+            <button class="playlist-close-btn" onclick="closeQueueOverlay()">
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
+        <div id="queue-tracks-list" class="playlist-tracks">
+            <!-- Queue or history tracks will be loaded here -->
         </div>
     </div>
 </body>

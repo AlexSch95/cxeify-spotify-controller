@@ -10,6 +10,16 @@ const PORT = process.env.PORT || 3000;
 let CLIENT_ID = null;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
 
+const REQUIRED_SCOPES = [
+    'user-read-playback-state',
+    'user-modify-playback-state',
+    'user-read-currently-playing',
+    'user-library-read',
+    'user-library-modify',
+    'user-read-recently-played'
+];
+const SCOPE_STRING = REQUIRED_SCOPES.join(' ');
+
 // desc: Determine data directory - use electron-store location
 const getDataDir = () => {
     if (process.env.SPOTIFY_CONTROLLER_DATA) {
@@ -266,14 +276,15 @@ app.get('/auth/start', (req, res) => {
     codeVerifier = generateCodeVerifier();
     const codeChallenge = generateCodeChallenge(codeVerifier);
 
-    const scope = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
+    const forceDialog = req.query.force === '1';
     const authUrl = `https://accounts.spotify.com/authorize?` +
         `client_id=${CLIENT_ID}` +
         `&response_type=code` +
         `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
         `&code_challenge_method=S256` +
         `&code_challenge=${codeChallenge}` +
-        `&scope=${encodeURIComponent(scope)}`;
+        `&scope=${encodeURIComponent(SCOPE_STRING)}` +
+        (forceDialog ? `&show_dialog=true` : '');
 
     res.redirect(authUrl);
 });
@@ -307,9 +318,11 @@ app.get('/callback', async (req, res) => {
             tokenData = {
                 access_token: data.access_token,
                 refresh_token: data.refresh_token,
-                expires_at: Date.now() + (data.expires_in * 1000)
+                expires_at: Date.now() + (data.expires_in * 1000),
+                scope: data.scope || ''
             };
             saveToken(tokenData);
+            console.log('[AUTH] Token granted with scopes:', data.scope || '(not reported)');
             res.redirect('/setup-complete.html');
         } else {
             res.status(400).send('Failed to get access token: ' + JSON.stringify(data));
@@ -348,6 +361,9 @@ async function ensureValidToken() {
                 if (data.refresh_token) {
                     tokenData.refresh_token = data.refresh_token;
                 }
+                if (data.scope) {
+                    tokenData.scope = data.scope;
+                }
                 saveToken(tokenData);
             }
         } catch (error) {
@@ -358,6 +374,48 @@ async function ensureValidToken() {
 
     return tokenData.access_token;
 }
+
+// desc: Report whether the saved token covers every scope this build needs
+app.get('/api/scope-status', async (req, res) => {
+    if (!tokenData) {
+        return res.json({ authenticated: false, ok: false, missing: REQUIRED_SCOPES });
+    }
+
+    // Legacy tokens from earlier builds didn't save the scope field. Probe it
+    // with a refresh so we don't mis-report them as missing every scope.
+    if (!tokenData.scope && tokenData.refresh_token) {
+        try {
+            const response = await fetch('https://accounts.spotify.com/api/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    client_id: CLIENT_ID,
+                    grant_type: 'refresh_token',
+                    refresh_token: tokenData.refresh_token
+                })
+            });
+            const data = await response.json();
+            if (data.access_token) {
+                tokenData.access_token = data.access_token;
+                tokenData.expires_at = Date.now() + (data.expires_in * 1000);
+                if (data.refresh_token) tokenData.refresh_token = data.refresh_token;
+                if (data.scope) tokenData.scope = data.scope;
+                saveToken(tokenData);
+            }
+        } catch (err) {
+            console.error('[SCOPE-STATUS] Failed to probe scope via refresh:', err);
+        }
+    }
+
+    const granted = (tokenData.scope || '').split(' ').filter(Boolean);
+    const missing = REQUIRED_SCOPES.filter(s => !granted.includes(s));
+    res.json({
+        authenticated: true,
+        ok: missing.length === 0,
+        granted,
+        missing
+    });
+});
 
 // desc: Get current Spotify playback state
 app.get('/api/current', async (req, res) => {
@@ -734,6 +792,111 @@ app.get('/api/context/:contextId/tracks', async (req, res) => {
             total: 0,
             hasMore: false
         });
+    }
+});
+
+// desc: Check if a track is saved in user's library (uses Feb 2026 /me/library endpoint)
+app.get('/api/track-saved/:id', async (req, res) => {
+    try {
+        const token = await ensureValidToken();
+        const { id } = req.params;
+        const uri = `spotify:track:${id}`;
+        const response = await fetch(`https://api.spotify.com/v1/me/library/contains?uris=${encodeURIComponent(uri)}`, {
+            headers: getSpotifyHeaders(token)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[TRACK-SAVED] Failed:', response.status, errorText);
+            return res.status(response.status).json({ error: 'Failed to check saved status' });
+        }
+
+        const data = await response.json();
+        res.json({ saved: Array.isArray(data) ? data[0] === true : false });
+    } catch (error) {
+        console.error('Error checking saved track:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// desc: Save or remove a track from user's library (uses Feb 2026 /me/library endpoint)
+app.put('/api/track-saved', async (req, res) => {
+    try {
+        const { id, saved } = req.body;
+        if (!id) {
+            return res.status(400).json({ error: 'Missing track id' });
+        }
+
+        const token = await ensureValidToken();
+        const uri = `spotify:track:${id}`;
+        const method = saved ? 'PUT' : 'DELETE';
+        const response = await fetch(`https://api.spotify.com/v1/me/library?uris=${encodeURIComponent(uri)}`, {
+            method,
+            headers: getSpotifyHeaders(token)
+        });
+
+        if (!response.ok && response.status !== 200 && response.status !== 204) {
+            const errorText = await response.text();
+            console.error('[TRACK-SAVED] Toggle failed:', response.status, errorText);
+            return res.status(response.status).json({ error: 'Failed to toggle saved status' });
+        }
+
+        res.json({ success: true, saved: !!saved });
+    } catch (error) {
+        console.error('Error toggling saved track:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// desc: Get the current user's playback queue
+app.get('/api/queue', async (req, res) => {
+    try {
+        const token = await ensureValidToken();
+        const response = await fetch('https://api.spotify.com/v1/me/player/queue', {
+            headers: getSpotifyHeaders(token)
+        });
+
+        if (response.status === 204) {
+            return res.json({ currently_playing: null, queue: [] });
+        }
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[QUEUE] Failed:', response.status, errorText);
+            return res.status(response.status).json({ error: 'Failed to load queue', queue: [] });
+        }
+
+        const data = await response.json();
+        res.json({
+            currently_playing: data.currently_playing || null,
+            queue: data.queue || []
+        });
+    } catch (error) {
+        console.error('Error getting queue:', error);
+        res.status(500).json({ error: error.message, queue: [] });
+    }
+});
+
+// desc: Get the user's recently played tracks
+app.get('/api/recently-played', async (req, res) => {
+    try {
+        const token = await ensureValidToken();
+        const limit = Math.min(50, parseInt(req.query.limit || '30', 10));
+        const response = await fetch(`https://api.spotify.com/v1/me/player/recently-played?limit=${limit}`, {
+            headers: getSpotifyHeaders(token)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[RECENT] Failed:', response.status, errorText);
+            return res.status(response.status).json({ error: 'Failed to load recently played', items: [] });
+        }
+
+        const data = await response.json();
+        res.json({ items: data.items || [] });
+    } catch (error) {
+        console.error('Error getting recently played:', error);
+        res.status(500).json({ error: error.message, items: [] });
     }
 });
 
