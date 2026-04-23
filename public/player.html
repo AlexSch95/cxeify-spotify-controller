@@ -1041,6 +1041,13 @@
             try {
                 const response = await fetch('/api/current');
 
+                if (response.status === 401) {
+                    // Token/refresh is dead — surface the re-auth banner and stop
+                    // hammering /api/current until the user re-authorizes.
+                    checkScopeStatus();
+                    return;
+                }
+
                 if (!response.ok) {
                     throw new Error(`API returned ${response.status}`);
                 }
@@ -1713,17 +1720,28 @@
                 const data = await response.json();
                 const banner = document.getElementById('scope-banner');
                 const message = document.getElementById('scope-banner-message');
-                if (data.authenticated && !data.ok && data.missing && data.missing.length) {
+
+                const needsReauth = !data.ok;
+
+                if (needsReauth) {
                     if (!banner.dataset.waiting) {
-                        message.textContent = `New features need additional Spotify permissions (${data.missing.length} missing).`;
+                        let text;
+                        if (data.reason === 'missing_scopes') {
+                            text = `New features need additional Spotify permissions (${(data.missing || []).length} missing).`;
+                        } else if (data.reason === 'not_authenticated') {
+                            text = 'Spotify account not connected. Please authorize.';
+                        } else {
+                            text = 'Your Spotify session has expired. Please re-authorize.';
+                        }
+                        message.textContent = text;
                     }
                     banner.classList.remove('hidden');
                     return false;
-                } else {
-                    banner.classList.add('hidden');
-                    delete banner.dataset.waiting;
-                    return true;
                 }
+
+                banner.classList.add('hidden');
+                delete banner.dataset.waiting;
+                return true;
             } catch (error) {
                 console.error('Error checking scope status:', error);
                 return false;

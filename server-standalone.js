@@ -34,6 +34,7 @@ const LAST_DEVICE_FILE = path.join(DATA_DIR, '.last-device.json');
 
 let tokenData = null;
 let lastDeviceId = null;
+let authState = { valid: true, reason: null };
 
 // desc: Get Spotify API headers
 function getSpotifyHeaders(token) {
@@ -322,6 +323,7 @@ app.get('/callback', async (req, res) => {
                 scope: data.scope || ''
             };
             saveToken(tokenData);
+            authState = { valid: true, reason: null };
             console.log('[AUTH] Token granted with scopes:', data.scope || '(not reported)');
             res.redirect('/setup-complete.html');
         } else {
@@ -333,78 +335,101 @@ app.get('/callback', async (req, res) => {
     }
 });
 
-// desc: Ensure OAuth token is valid, refresh if expired
+// desc: Exchange refresh_token for a new access token; returns true on success
+async function refreshAccessToken() {
+    if (!tokenData || !tokenData.refresh_token) return false;
+    try {
+        const response = await fetch('https://accounts.spotify.com/api/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: CLIENT_ID,
+                grant_type: 'refresh_token',
+                refresh_token: tokenData.refresh_token
+            })
+        });
+        const data = await response.json();
+
+        if (data.access_token) {
+            tokenData.access_token = data.access_token;
+            tokenData.expires_at = Date.now() + (data.expires_in * 1000);
+            if (data.refresh_token) tokenData.refresh_token = data.refresh_token;
+            if (data.scope) tokenData.scope = data.scope;
+            saveToken(tokenData);
+            authState = { valid: true, reason: null };
+            return true;
+        }
+
+        console.error('[AUTH] Refresh failed:', data);
+        authState = { valid: false, reason: data.error || 'refresh_failed' };
+        return false;
+    } catch (error) {
+        console.error('[AUTH] Refresh request error:', error);
+        authState = { valid: false, reason: 'network_error' };
+        return false;
+    }
+}
+
+// desc: Ensure OAuth token is valid, refresh if expired. Throws a REAUTH_REQUIRED
+// error when the refresh token is revoked or otherwise unusable, so endpoints can
+// surface a clear signal to the client instead of silently making an expired call.
 async function ensureValidToken() {
     if (!tokenData) {
-        throw new Error('No token available. Please run /setup first.');
+        const err = new Error('Not authenticated');
+        err.code = 'NOT_AUTHENTICATED';
+        throw err;
     }
 
-    if (Date.now() >= tokenData.expires_at - 60000) { // Refresh 1 minute before expiry
-        try {
-            const response = await fetch('https://accounts.spotify.com/api/token', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    client_id: CLIENT_ID,
-                    grant_type: 'refresh_token',
-                    refresh_token: tokenData.refresh_token
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.access_token) {
-                tokenData.access_token = data.access_token;
-                tokenData.expires_at = Date.now() + (data.expires_in * 1000);
-                if (data.refresh_token) {
-                    tokenData.refresh_token = data.refresh_token;
-                }
-                if (data.scope) {
-                    tokenData.scope = data.scope;
-                }
-                saveToken(tokenData);
-            }
-        } catch (error) {
-            console.error('Error refreshing token:', error);
-            throw error;
+    if (Date.now() >= tokenData.expires_at - 60000) {
+        const ok = await refreshAccessToken();
+        if (!ok) {
+            const err = new Error('Re-authorization required');
+            err.code = 'REAUTH_REQUIRED';
+            err.reason = authState.reason || 'refresh_failed';
+            throw err;
         }
     }
 
     return tokenData.access_token;
 }
 
-// desc: Report whether the saved token covers every scope this build needs
+// desc: Map auth errors to a 401 response; returns true if handled
+function handleAuthError(err, res) {
+    if (err && (err.code === 'REAUTH_REQUIRED' || err.code === 'NOT_AUTHENTICATED')) {
+        res.status(401).json({
+            error: err.code === 'NOT_AUTHENTICATED' ? 'not_authenticated' : 'reauth_required',
+            reason: err.reason || null
+        });
+        return true;
+    }
+    return false;
+}
+
+// desc: Report whether re-auth is needed (token revoked, missing scopes, or not authenticated)
 app.get('/api/scope-status', async (req, res) => {
     if (!tokenData) {
-        return res.json({ authenticated: false, ok: false, missing: REQUIRED_SCOPES });
+        return res.json({
+            authenticated: false,
+            ok: false,
+            missing: REQUIRED_SCOPES,
+            reason: 'not_authenticated'
+        });
     }
 
-    // Legacy tokens from earlier builds didn't save the scope field. Probe it
-    // with a refresh so we don't mis-report them as missing every scope.
+    // Legacy tokens from earlier builds didn't save the scope field. Probe via
+    // refresh so we don't mis-report them as missing every scope. Also detects
+    // revoked refresh tokens as a side effect.
     if (!tokenData.scope && tokenData.refresh_token) {
-        try {
-            const response = await fetch('https://accounts.spotify.com/api/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    client_id: CLIENT_ID,
-                    grant_type: 'refresh_token',
-                    refresh_token: tokenData.refresh_token
-                })
-            });
-            const data = await response.json();
-            if (data.access_token) {
-                tokenData.access_token = data.access_token;
-                tokenData.expires_at = Date.now() + (data.expires_in * 1000);
-                if (data.refresh_token) tokenData.refresh_token = data.refresh_token;
-                if (data.scope) tokenData.scope = data.scope;
-                saveToken(tokenData);
-            }
-        } catch (err) {
-            console.error('[SCOPE-STATUS] Failed to probe scope via refresh:', err);
-        }
+        await refreshAccessToken();
+    }
+
+    if (!authState.valid) {
+        return res.json({
+            authenticated: true,
+            ok: false,
+            missing: [],
+            reason: authState.reason || 'refresh_failed'
+        });
     }
 
     const granted = (tokenData.scope || '').split(' ').filter(Boolean);
@@ -413,7 +438,8 @@ app.get('/api/scope-status', async (req, res) => {
         authenticated: true,
         ok: missing.length === 0,
         granted,
-        missing
+        missing,
+        reason: missing.length ? 'missing_scopes' : null
     });
 });
 
@@ -429,6 +455,13 @@ app.get('/api/current', async (req, res) => {
             return res.json({ playing: false });
         }
 
+        if (response.status === 401) {
+            // Access token rejected by Spotify even though our refresh said OK
+            // (can happen if the token was revoked server-side). Flag for re-auth.
+            authState = { valid: false, reason: 'token_revoked' };
+            return res.status(401).json({ error: 'reauth_required', reason: 'token_revoked' });
+        }
+
         const data = await response.json();
 
         // Save device if currently playing
@@ -438,6 +471,7 @@ app.get('/api/current', async (req, res) => {
 
         res.json(data);
     } catch (error) {
+        if (handleAuthError(error, res)) return;
         console.error('Error getting current track:', error);
         res.status(500).json({ error: error.message });
     }
