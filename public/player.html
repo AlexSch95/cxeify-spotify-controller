@@ -890,6 +890,8 @@
         let volumeDebounceTimer = null;
         let lastSetVolume = null;
         let errorState = { hasError: false, retryCount: 0 };
+        let lastAlbumArtUrl = null;
+        let localProgress = { ms: 0, duration: 0, syncedAt: 0, isPlaying: false };
 
         // desc: Load custom accent color from server settings
         async function loadAccentColor() {
@@ -1074,19 +1076,25 @@
                     albumImage.src = '';
                     currentTrackId = null;
                     setLikeButtonState(false);
-                    
-                    // Set dark gradient background when no playback
-                    const styleSheet = document.styleSheets[0];
-                    for (let i = 0; i < styleSheet.cssRules.length; i++) {
-                        if (styleSheet.cssRules[i].selectorText === 'body::before') {
-                            styleSheet.cssRules[i].style.backgroundImage = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
-                            break;
+                    localProgress.isPlaying = false;
+
+                    // Only rewrite the background rule when the image URL actually
+                    // changes — otherwise iCUE's embed flashes on every poll.
+                    const gradient = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
+                    if (lastAlbumArtUrl !== gradient) {
+                        const styleSheet = document.styleSheets[0];
+                        for (let i = 0; i < styleSheet.cssRules.length; i++) {
+                            if (styleSheet.cssRules[i].selectorText === 'body::before') {
+                                styleSheet.cssRules[i].style.backgroundImage = gradient;
+                                break;
+                            }
                         }
+                        lastAlbumArtUrl = gradient;
                     }
-                    
+
                     // Update volume slider with current accent color
                     updateVolumeSliderFill(volumeSlider.value);
-                    
+
                     return;
                 }
 
@@ -1100,21 +1108,20 @@
                 trackName.textContent = data.item.name;
                 artistName.textContent = data.item.artists.map(a => a.name).join(', ');
 
-                // Album Art als Hintergrund setzen
+                // Album art background — only rewrite the rule when the URL
+                // actually changes (avoids per-poll iframe compositor flash).
                 const albumArtUrl = data.item.album.images[0]?.url || '';
-                albumImage.src = albumArtUrl;
-                if (albumArtUrl) {
+                if (albumArtUrl && albumArtUrl !== lastAlbumArtUrl) {
+                    albumImage.src = albumArtUrl;
                     document.body.style.setProperty('--album-bg', `url(${albumArtUrl})`);
-                    document.querySelector('body::before') || (document.body.style.backgroundImage = `url(${albumArtUrl})`);
-                    // Direkt auf body::before zugreifen ist nicht möglich, daher setzen wir es über style
                     const styleSheet = document.styleSheets[0];
-                    // Finde bestehende before-Regel und aktualisiere sie
                     for (let i = 0; i < styleSheet.cssRules.length; i++) {
                         if (styleSheet.cssRules[i].selectorText === 'body::before') {
                             styleSheet.cssRules[i].style.backgroundImage = `url(${albumArtUrl})`;
                             break;
                         }
                     }
+                    lastAlbumArtUrl = albumArtUrl;
                 }
 
                 if (data.is_playing) {
@@ -1125,10 +1132,15 @@
                     pauseIcon.classList.add('hidden');
                 }
 
-                currentTime.textContent = formatTime(data.progress_ms);
-                duration.textContent = formatTime(data.item.duration_ms);
+                // Sync progress state for the local tick to interpolate between polls
+                localProgress.ms = data.progress_ms;
+                localProgress.duration = data.item.duration_ms;
+                localProgress.syncedAt = Date.now();
+                localProgress.isPlaying = !!data.is_playing;
 
+                duration.textContent = formatTime(data.item.duration_ms);
                 if (!isSeeking) {
+                    currentTime.textContent = formatTime(data.progress_ms);
                     const percentage = (data.progress_ms / data.item.duration_ms) * 100;
                     progressFill.style.width = percentage + '%';
                 }
@@ -1766,11 +1778,22 @@
             }, 2000);
         }
 
+        // desc: Local tick interpolates progress between 2s server syncs so the
+        // counter updates every second and the progress bar moves smoothly.
+        function tickLocalProgress() {
+            if (!localProgress.duration || isSeeking) return;
+            const elapsed = localProgress.isPlaying ? (Date.now() - localProgress.syncedAt) : 0;
+            const position = Math.min(localProgress.duration, localProgress.ms + elapsed);
+            currentTime.textContent = formatTime(position);
+            progressFill.style.width = ((position / localProgress.duration) * 100) + '%';
+        }
+
         // Initialize
         loadAccentColor();
         checkScopeStatus();
         updatePlayback();
         setInterval(updatePlayback, 2000); // Every 2 seconds
+        setInterval(tickLocalProgress, 250); // Smooth local interpolation
         updateVolumeSliderFill(50);
     </script>
 
