@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -160,6 +161,15 @@ function generateCodeChallenge(verifier) {
 
 app.use(express.json({ charset: 'utf-8' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Any mutating control request invalidates the /api/current cache so the next
+// poll reflects the new state immediately instead of waiting for TTL.
+app.use((req, res, next) => {
+    if ((req.method === 'POST' || req.method === 'PUT') && req.path.startsWith('/api/')) {
+        invalidateCurrentCache();
+    }
+    next();
+});
 
 let codeVerifier = '';
 
@@ -443,15 +453,32 @@ app.get('/api/scope-status', async (req, res) => {
     });
 });
 
+// In-memory cache for /me/player — multiple client instances (iCUE widget,
+// preview pane, browser tabs) all share one upstream Spotify call per window.
+const CURRENT_CACHE_TTL = 2500;
+let currentCache = { expiresAt: 0, status: 0, body: null, rateLimited: false, retryAfter: 0 };
+function invalidateCurrentCache() { currentCache.expiresAt = 0; }
+
 // desc: Get current Spotify playback state
 app.get('/api/current', async (req, res) => {
     try {
+        // Serve from cache if fresh
+        if (Date.now() < currentCache.expiresAt) {
+            if (currentCache.rateLimited) {
+                res.set('Retry-After', String(currentCache.retryAfter));
+                return res.status(429).json({ error: 'rate_limited', retryAfter: currentCache.retryAfter });
+            }
+            if (currentCache.status === 204) return res.json({ playing: false });
+            return res.json(currentCache.body);
+        }
+
         const token = await ensureValidToken();
         const response = await fetch('https://api.spotify.com/v1/me/player', {
             headers: getSpotifyHeaders(token)
         });
 
         if (response.status === 204) {
+            currentCache = { expiresAt: Date.now() + CURRENT_CACHE_TTL, status: 204, body: null, rateLimited: false, retryAfter: 0 };
             return res.json({ playing: false });
         }
 
@@ -462,6 +489,15 @@ app.get('/api/current', async (req, res) => {
             return res.status(401).json({ error: 'reauth_required', reason: 'token_revoked' });
         }
 
+        if (response.status === 429) {
+            const retryAfter = parseInt(response.headers.get('retry-after') || '10', 10);
+            // Cache the rate-limit state for the full retry window so every client
+            // shares the same backoff and we don't hammer Spotify further.
+            currentCache = { expiresAt: Date.now() + retryAfter * 1000, status: 429, body: null, rateLimited: true, retryAfter };
+            res.set('Retry-After', String(retryAfter));
+            return res.status(429).json({ error: 'rate_limited', retryAfter });
+        }
+
         const data = await response.json();
 
         // Save device if currently playing
@@ -469,6 +505,7 @@ app.get('/api/current', async (req, res) => {
             saveLastDevice(data.device.id, data.device.name);
         }
 
+        currentCache = { expiresAt: Date.now() + CURRENT_CACHE_TTL, status: response.status, body: data, rateLimited: false, retryAfter: 0 };
         res.json(data);
     } catch (error) {
         if (handleAuthError(error, res)) return;
@@ -983,6 +1020,248 @@ app.post('/api/play-track', async (req, res) => {
         console.error('Error playing track:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+// Windows SMTC fallback — reads the system's currently-playing media via a
+// PowerShell subprocess that talks to Windows.Media.Control. Used by the
+// player UI when Spotify rate-limits us so the widget keeps showing live info.
+const SMTC_SCRIPT = `
+$ErrorActionPreference = 'Stop'
+try {
+    Add-Type -AssemblyName 'System.Runtime.WindowsRuntime' | Out-Null
+    $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+        $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation\`1'
+    })[0]
+    function Await($task, $resultType) {
+        $asTask = $asTaskGeneric.MakeGenericMethod($resultType)
+        $netTask = $asTask.Invoke($null, @($task))
+        $netTask.Wait(-1) | Out-Null
+        $netTask.Result
+    }
+    [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime] | Out-Null
+    $mgr = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+    $session = $mgr.GetCurrentSession()
+    if ($null -eq $session) { '{}'; exit }
+    [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties, Windows.Media.Control, ContentType=WindowsRuntime] | Out-Null
+    $props = Await ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+    $info = $session.GetPlaybackInfo()
+    $timeline = $session.GetTimelineProperties()
+    $out = @{
+        title = $props.Title
+        artist = $props.Artist
+        album = $props.AlbumTitle
+        isPlaying = ($info.PlaybackStatus -eq 'Playing')
+        appId = $session.SourceAppUserModelId
+        position = [int]$timeline.Position.TotalMilliseconds
+        duration = [int]$timeline.EndTime.TotalMilliseconds
+        positionReportedAt = [int64]$timeline.LastUpdatedTime.ToUnixTimeMilliseconds()
+    }
+    $out | ConvertTo-Json -Compress
+} catch {
+    @{ error = $_.Exception.Message } | ConvertTo-Json -Compress
+}
+`;
+
+let smtcCache = { expiresAt: 0, data: null };
+const SMTC_CACHE_TTL = 2500;
+
+function getSystemMedia() {
+    if (Date.now() < smtcCache.expiresAt) return Promise.resolve(smtcCache.data);
+    return new Promise((resolve) => {
+        const encoded = Buffer.from(SMTC_SCRIPT, 'utf16le').toString('base64');
+        const proc = spawn('powershell.exe', [
+            '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-EncodedCommand', encoded
+        ], { windowsHide: true });
+        let stdout = '';
+        let stderr = '';
+        const timer = setTimeout(() => { try { proc.kill(); } catch (_) {} }, 2500);
+        proc.stdout.on('data', (d) => stdout += d);
+        proc.stderr.on('data', (d) => stderr += d);
+        proc.on('close', () => {
+            clearTimeout(timer);
+            let data;
+            try {
+                data = JSON.parse((stdout || '{}').trim());
+            } catch (e) {
+                data = { error: 'parse_failed' };
+            }
+            smtcCache = { expiresAt: Date.now() + SMTC_CACHE_TTL, data };
+            resolve(data);
+        });
+        proc.on('error', (e) => {
+            clearTimeout(timer);
+            resolve({ error: e.message });
+        });
+    });
+}
+
+// desc: Read the system's currently-playing media (Windows SMTC fallback)
+app.get('/api/system-media', async (req, res) => {
+    const data = await getSystemMedia();
+    res.json(data);
+});
+
+const SMTC_COMMAND_METHODS = {
+    play_pause: 'TryTogglePlayPauseAsync',
+    next: 'TrySkipNextAsync',
+    previous: 'TrySkipPreviousAsync'
+};
+
+// Shared Core Audio PowerShell shim — used for GET/SET system volume. Cost is
+// ~700ms per invocation because of the C# Add-Type compile; acceptable for
+// user-initiated volume changes, not for polling.
+const AUDIO_SHIM = `
+Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+[Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IAudioEndpointVolume {
+    int f(); int g(); int h(); int i();
+    int SetMasterVolumeLevelScalar(float fLevel, System.Guid pguidEventContext);
+    int j();
+    int GetMasterVolumeLevelScalar(out float pfLevel);
+    int k(); int l(); int m(); int n();
+    int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, System.Guid pguidEventContext);
+    int GetMute(out bool pbMute);
+}
+[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDevice {
+    int Activate(ref System.Guid id, int clsCtx, int activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object aev);
+}
+[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDeviceEnumerator {
+    int f();
+    int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
+}
+[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorComObject { }
+public class Audio {
+    static IAudioEndpointVolume Vol() {
+        var e = new MMDeviceEnumeratorComObject() as IMMDeviceEnumerator;
+        IMMDevice dev = null;
+        Marshal.ThrowExceptionForHR(e.GetDefaultAudioEndpoint(0, 1, out dev));
+        System.Guid g = typeof(IAudioEndpointVolume).GUID;
+        object o;
+        Marshal.ThrowExceptionForHR(dev.Activate(ref g, 23, 0, out o));
+        return (IAudioEndpointVolume)o;
+    }
+    public static float Get() { float v = 0; Marshal.ThrowExceptionForHR(Vol().GetMasterVolumeLevelScalar(out v)); return v; }
+    public static void Set(float v) { Marshal.ThrowExceptionForHR(Vol().SetMasterVolumeLevelScalar(v, System.Guid.Empty)); }
+    public static void SetMute(bool m) { Marshal.ThrowExceptionForHR(Vol().SetMute(m, System.Guid.Empty)); }
+}
+"@ -Language CSharp | Out-Null
+`;
+
+function runPowerShell(scriptText, timeoutMs = 3500) {
+    return new Promise((resolve) => {
+        const encoded = Buffer.from(scriptText, 'utf16le').toString('base64');
+        const proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], { windowsHide: true });
+        let stdout = '';
+        const timer = setTimeout(() => { try { proc.kill(); } catch (_) {} }, timeoutMs);
+        proc.stdout.on('data', (d) => stdout += d);
+        proc.on('close', () => {
+            clearTimeout(timer);
+            try { resolve(JSON.parse((stdout || '{}').trim())); }
+            catch (e) { resolve({ success: false, error: 'parse_failed', raw: stdout }); }
+        });
+        proc.on('error', (e) => { clearTimeout(timer); resolve({ success: false, error: e.message }); });
+    });
+}
+
+// desc: Read current system volume via Core Audio (slow ~900ms, user-triggered only)
+app.get('/api/system-volume', async (req, res) => {
+    const script = AUDIO_SHIM + `\n@{ volume = [int]([Audio]::Get() * 100) } | ConvertTo-Json -Compress`;
+    const result = await runPowerShell(script);
+    res.json(result);
+});
+
+// desc: Set system volume (0-100) via Core Audio. Mutes when volume reaches 0,
+// unmutes otherwise — matches what users expect when dragging a slider.
+app.post('/api/system-volume', async (req, res) => {
+    const volume = Math.max(0, Math.min(100, parseInt(req.body && req.body.volume, 10)));
+    if (Number.isNaN(volume)) return res.status(400).json({ error: 'invalid_volume' });
+    const muteFlag = volume === 0 ? '$true' : '$false';
+    const script = AUDIO_SHIM + `\n[Audio]::Set(${volume / 100}); [Audio]::SetMute(${muteFlag}); @{ success = $true; volume = ${volume}; muted = ${muteFlag} } | ConvertTo-Json -Compress`;
+    const result = await runPowerShell(script);
+    res.json(result);
+});
+
+function runSMTCCommand(method) {
+    return new Promise((resolve) => {
+        const script = `
+$ErrorActionPreference = 'Stop'
+try {
+    Add-Type -AssemblyName 'System.Runtime.WindowsRuntime' | Out-Null
+    $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+        $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation\`1'
+    })[0]
+    function Await($task, $resultType) {
+        $asTask = $asTaskGeneric.MakeGenericMethod($resultType)
+        $netTask = $asTask.Invoke($null, @($task))
+        $netTask.Wait(-1) | Out-Null
+        $netTask.Result
+    }
+    [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime] | Out-Null
+    $mgr = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+    $session = $mgr.GetCurrentSession()
+    if ($null -eq $session) { @{ success = $false; error = 'no_session' } | ConvertTo-Json -Compress; exit }
+    $result = Await ($session.${method}()) ([bool])
+    @{ success = [bool]$result } | ConvertTo-Json -Compress
+} catch {
+    @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+}`;
+        const encoded = Buffer.from(script, 'utf16le').toString('base64');
+        const proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], { windowsHide: true });
+        let stdout = '';
+        const timer = setTimeout(() => { try { proc.kill(); } catch (_) {} }, 3000);
+        proc.stdout.on('data', (d) => stdout += d);
+        proc.on('close', () => {
+            clearTimeout(timer);
+            try { resolve(JSON.parse((stdout || '{}').trim())); }
+            catch (e) { resolve({ success: false, error: 'parse_failed' }); }
+        });
+        proc.on('error', (e) => { clearTimeout(timer); resolve({ success: false, error: e.message }); });
+    });
+}
+
+// desc: Send a play/pause/next/previous command to the system media session
+app.post('/api/system-media/:action', async (req, res) => {
+    if (req.params.action === 'seek') {
+        const positionMs = Math.max(0, parseInt(req.body && req.body.position, 10));
+        if (Number.isNaN(positionMs)) return res.status(400).json({ error: 'invalid_position' });
+        const ticks = positionMs * 10000; // 100-nanosecond units
+        const script = `
+$ErrorActionPreference = 'Stop'
+try {
+    Add-Type -AssemblyName 'System.Runtime.WindowsRuntime' | Out-Null
+    $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+        $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation\`1'
+    })[0]
+    function Await($task, $resultType) {
+        $asTask = $asTaskGeneric.MakeGenericMethod($resultType)
+        $netTask = $asTask.Invoke($null, @($task))
+        $netTask.Wait(-1) | Out-Null
+        $netTask.Result
+    }
+    [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime] | Out-Null
+    $mgr = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+    $session = $mgr.GetCurrentSession()
+    if ($null -eq $session) { @{ success = $false; error = 'no_session' } | ConvertTo-Json -Compress; exit }
+    $result = Await ($session.TryChangePlaybackPositionAsync(${ticks})) ([bool])
+    @{ success = [bool]$result } | ConvertTo-Json -Compress
+} catch {
+    @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+}`;
+        const result = await runPowerShell(script);
+        smtcCache.expiresAt = 0;
+        return res.json(result);
+    }
+
+    const method = SMTC_COMMAND_METHODS[req.params.action];
+    if (!method) return res.status(400).json({ error: 'unknown_action' });
+    const result = await runSMTCCommand(method);
+    // invalidate the SMTC read cache so the next fetch reflects the new state
+    smtcCache.expiresAt = 0;
+    res.json(result);
 });
 
 // desc: Initialize server and load persisted data

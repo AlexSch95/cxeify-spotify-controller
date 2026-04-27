@@ -43,7 +43,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background-image: linear-gradient(135deg, #0c1f3e 0%, #1e3a6e 50%, #2a5a9c 100%);
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -141,6 +141,7 @@
 
         .progress-fill {
             height: 100%;
+            width: 0;
             background: var(--accent-color);
             border-radius: 1.5vh;
             box-shadow: 0 0 10px var(--accent-color);
@@ -652,6 +653,64 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Rate limit pill — small, unobtrusive while the last known track keeps
+           displaying so the widget doesn't blank out. */
+        .rate-pill {
+            position: fixed;
+            top: clamp(16px, 2vh, 24px);
+            left: clamp(16px, 2vw, 24px);
+            background: rgba(255, 180, 0, 0.92);
+            color: #1a1a1a;
+            padding: clamp(4px, 0.8vh, 8px) clamp(8px, 1.2vw, 12px) clamp(4px, 0.8vh, 8px) clamp(10px, 1.4vw, 16px);
+            border-radius: 999px;
+            font-size: clamp(11px, 1.4vw, 14px);
+            font-weight: 600;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+            z-index: 250;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rate-pill.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .rate-pill-close {
+            background: transparent;
+            border: none;
+            color: inherit;
+            font-size: clamp(14px, 1.8vw, 18px);
+            line-height: 1;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 50%;
+            font-family: inherit;
+            opacity: 0.7;
+            transition: opacity 0.15s ease, background 0.15s ease;
+        }
+
+        .rate-pill-close:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        /* While the SMTC fallback is active, Spotify-only controls are disabled.
+           Play/prev/next, seek, and volume are re-routed to system APIs. */
+        body.smtc-mode #shuffle-btn,
+        body.smtc-mode #repeat-btn,
+        body.smtc-mode #like-btn,
+        body.smtc-mode #queue-icon,
+        body.smtc-mode #playlist-icon {
+            opacity: 0.15;
+            pointer-events: none;
+            filter: grayscale(0.7);
+        }
+
         /* Scope Re-auth Banner */
         .scope-banner {
             position: fixed;
@@ -801,22 +860,22 @@
     <div class="bg-layer" id="bg-layer"></div>
     <div class="bg-vignette"></div>
     <div class="container">
-        <div id="setup-screen" style="text-align: center;">
+        <div id="setup-screen" class="hidden" style="text-align: center;">
             <h1>🎵</h1>
             <p>Cxeify</p>
             <div class="setup-message">
-                <p>⚠️ Setup erforderlich!</p>
-                <p>Öffne im Browser:</p>
-                <p><a href="http://127.0.0.1:3000/setup">http://127.0.0.1:3000/setup</a></p>
+                <p>⚠️ Setup required</p>
+                <p>Open in your browser:</p>
+                <p><a href="http://127.0.0.1:3000/setup" target="_blank" rel="noopener">http://127.0.0.1:3000/setup</a></p>
             </div>
         </div>
 
-        <div id="player-screen" class="hidden">
+        <div id="player-screen">
             <img id="album-image" src="" alt="Album Cover" style="display: none;">
             <div class="main-content">
                 <div class="track-info">
-                    <h2 id="track-name">Kein Track</h2>
-                    <p id="artist-name">Kein Künstler</p>
+                    <h2 id="track-name">No Playback</h2>
+                    <p id="artist-name">Start Spotify on a device</p>
                 </div>
                 <div class="progress-container">
                     <span id="current-time">0:00</span>
@@ -1047,8 +1106,116 @@
             }
         }
 
+        let rateLimitedUntil = 0;
+        let rateLimitTicker = null;
+
+        // desc: When Spotify Web API isn't usable (rate limit, or no active
+        // device), pull the system's currently-playing media from Windows SMTC
+        // and display that. Small pill indicates the fallback is active.
+        let smtcFallbackActive = false;
+        let smtcReason = null; // 'rate-limit' | 'idle'
+        let smtcPollTimer = null;
+
+        async function fetchSystemMedia() {
+            try {
+                const response = await fetch('/api/system-media');
+                if (!response.ok) return null;
+                const data = await response.json();
+                if (data && data.title) return data;
+                return null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function applySystemMediaToUI(data) {
+            if (!data) return;
+            setText(trackName, data.title || 'Unknown');
+            setText(artistName, data.artist || '');
+            setHidden(playIcon, !!data.isPlaying);
+            setHidden(pauseIcon, !data.isPlaying);
+            if (data.duration) {
+                setText(duration, formatTime(data.duration));
+                localProgress.duration = data.duration;
+                // SMTC's Position is only refreshed when the media app sends an
+                // update (Spotify can go several seconds between updates). Use
+                // positionReportedAt to figure out the REAL current position, so
+                // the local tick doesn't snap backward each poll.
+                const reportedAt = data.positionReportedAt || Date.now();
+                const skew = Math.max(0, Date.now() - reportedAt); // clock skew guard
+                localProgress.ms = (data.position || 0) + (data.isPlaying ? skew : 0);
+                localProgress.syncedAt = Date.now();
+                localProgress.isPlaying = !!data.isPlaying;
+                tickLocalProgress();
+            }
+        }
+
+        async function pollSMTCFallback() {
+            const data = await fetchSystemMedia();
+            if (data) applySystemMediaToUI(data);
+        }
+
+        function enterSmtcFallback(reason) {
+            const pill = document.getElementById('rate-pill');
+            const label = document.getElementById('rate-pill-text');
+            const wasActive = smtcFallbackActive;
+            smtcFallbackActive = true;
+            smtcReason = reason;
+            document.body.classList.add('smtc-mode');
+
+            if (!wasActive) {
+                pollSMTCFallback();
+                clearInterval(smtcPollTimer);
+                smtcPollTimer = setInterval(pollSMTCFallback, 3000);
+
+                // Populate the volume slider with the actual system volume (one-shot)
+                fetch('/api/system-volume').then(r => r.ok ? r.json() : null).then(data => {
+                    if (!data || typeof data.volume !== 'number' || isAdjustingVolume) return;
+                    volumeSlider.value = data.volume;
+                    updateVolumeSliderFill(data.volume);
+                }).catch(() => {});
+            }
+
+            pill.classList.add('visible');
+            clearInterval(rateLimitTicker);
+            rateLimitTicker = null;
+
+            if (reason === 'rate-limit') {
+                const tick = () => {
+                    const secs = Math.max(0, Math.ceil((rateLimitedUntil - Date.now()) / 1000));
+                    if (secs <= 0) {
+                        exitSmtcFallback();
+                        updatePlayback();
+                        return;
+                    }
+                    setText(label, `Spotify rate-limited — showing system media · retrying in ${secs}s`);
+                };
+                tick();
+                rateLimitTicker = setInterval(tick, 1000);
+            } else if (reason === 'idle') {
+                setText(label, 'Spotify idle — showing system media');
+            }
+        }
+
+        function exitSmtcFallback() {
+            if (!smtcFallbackActive) return;
+            smtcFallbackActive = false;
+            smtcReason = null;
+            document.body.classList.remove('smtc-mode');
+            clearInterval(smtcPollTimer);
+            smtcPollTimer = null;
+            clearInterval(rateLimitTicker);
+            rateLimitTicker = null;
+            document.getElementById('rate-pill').classList.remove('visible');
+        }
+
+        // Backwards-compatible alias used by the rate-limit path
+        function startRateLimitIndicator() { enterSmtcFallback('rate-limit'); }
+
         // desc: Update player UI with current Spotify playback state
         async function updatePlayback() {
+            if (Date.now() < rateLimitedUntil) return; // backing off
+
             try {
                 const response = await fetch('/api/current');
 
@@ -1056,6 +1223,17 @@
                     // Token/refresh is dead — surface the re-auth banner and stop
                     // hammering /api/current until the user re-authorizes.
                     checkScopeStatus();
+                    return;
+                }
+
+                if (response.status === 429) {
+                    // Spotify rate-limited us — keep the last-known playback on
+                    // screen and surface a small pill with a countdown.
+                    const body = await response.json().catch(() => ({}));
+                    const retryAfter = Math.max(5, parseInt(body.retryAfter || response.headers.get('retry-after') || '10', 10));
+                    rateLimitedUntil = Date.now() + retryAfter * 1000;
+                    console.warn(`Rate limited by Spotify. Backing off ${retryAfter}s.`);
+                    startRateLimitIndicator();
                     return;
                 }
 
@@ -1070,16 +1248,17 @@
                     errorState = { hasError: false, retryCount: 0 };
                 }
 
-                if (data.error === 'not_authenticated') {
-                    setupScreen.classList.remove('hidden');
-                    playerScreen.classList.add('hidden');
-                    return;
-                }
-
-                setupScreen.classList.add('hidden');
-                playerScreen.classList.remove('hidden');
-
                 if (!data.item) {
+                    // No active Spotify device. Try SMTC — if something is playing
+                    // system-wide (paused Spotify, YouTube, etc.) show that instead
+                    // of the no-playback screen.
+                    const smtc = await fetchSystemMedia();
+                    if (smtc && smtc.title) {
+                        enterSmtcFallback('idle');
+                        applySystemMediaToUI(smtc);
+                        return;
+                    }
+
                     setText(trackName, 'No Playback');
                     setText(artistName, 'Start Spotify on a device');
                     if (albumImage.src) albumImage.src = '';
@@ -1087,7 +1266,9 @@
                     setLikeButtonState(false);
                     localProgress.isPlaying = false;
 
-                    const gradient = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
+                    // Distinct warm gradient so the no-playback state is visually
+                    // different from the default blue.
+                    const gradient = 'linear-gradient(135deg, #2a1c08 0%, #6e3a14 50%, #b07028 100%)';
                     if (lastAlbumArtUrl !== gradient) {
                         document.getElementById('bg-layer').style.backgroundImage = gradient;
                         lastAlbumArtUrl = gradient;
@@ -1095,6 +1276,11 @@
 
                     updateVolumeSliderFill(volumeSlider.value);
                     return;
+                }
+
+                // Spotify has a track — exit any 'idle' SMTC fallback we were in
+                if (smtcFallbackActive && smtcReason === 'idle') {
+                    exitSmtcFallback();
                 }
 
                 currentPlaybackState = data;
@@ -1155,25 +1341,23 @@
             }
         }
 
-        playPauseBtn.addEventListener('click', async () => {
-            if (!currentPlaybackState) return;
-            await fetch('/api/play-pause', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playing: currentPlaybackState.is_playing })
-            });
+        async function sendTransportCommand(spotifyPath, smtcAction) {
+            if (smtcFallbackActive) {
+                await fetch(`/api/system-media/${smtcAction}`, { method: 'POST' });
+                setTimeout(pollSMTCFallback, 300);
+                return;
+            }
+            await fetch(spotifyPath, { method: 'POST' });
             setTimeout(updatePlayback, 300);
+        }
+
+        playPauseBtn.addEventListener('click', () => {
+            if (!smtcFallbackActive && !currentPlaybackState) return;
+            sendTransportCommand('/api/play-pause', 'play_pause');
         });
 
-        prevBtn.addEventListener('click', async () => {
-            await fetch('/api/previous', { method: 'POST' });
-            setTimeout(updatePlayback, 500);
-        });
-
-        nextBtn.addEventListener('click', async () => {
-            await fetch('/api/next', { method: 'POST' });
-            setTimeout(updatePlayback, 500);
-        });
+        prevBtn.addEventListener('click', () => sendTransportCommand('/api/previous', 'previous'));
+        nextBtn.addEventListener('click', () => sendTransportCommand('/api/next', 'next'));
 
         shuffleBtn.addEventListener('click', async () => {
             if (!currentPlaybackState) return;
@@ -1341,22 +1525,32 @@
         let seekDebounceTimer = null;
 
         async function performSeek(clientX) {
-            if (!currentPlaybackState) return;
+            // Need a known duration — from Spotify state normally, SMTC-derived
+            // during fallback (localProgress.duration is populated either way).
+            const durationMs = currentPlaybackState?.item?.duration_ms || localProgress.duration;
+            if (!durationMs) return;
 
             const rect = progressBar.getBoundingClientRect();
             const percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-            const position = Math.floor(currentPlaybackState.item.duration_ms * percentage);
+            const position = Math.floor(durationMs * percentage);
 
             clearTimeout(seekDebounceTimer);
             seekDebounceTimer = setTimeout(async () => {
-                await fetch('/api/seek', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ position })
-                });
-                setTimeout(() => {
-                    isSeeking = false;
-                }, 300);
+                if (smtcFallbackActive) {
+                    await fetch('/api/system-media/seek', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ position })
+                    });
+                    setTimeout(pollSMTCFallback, 300);
+                } else {
+                    await fetch('/api/seek', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ position })
+                    });
+                }
+                setTimeout(() => { isSeeking = false; }, 300);
             }, 100);
         }
 
@@ -1421,10 +1615,11 @@
             lastSetVolume = newVolume;
             updateVolumeSliderFill(newVolume);
 
-            // Debounce: nur alle 200ms die Lautstärke senden
+            // Debounce: only send after 200ms of no further input
             clearTimeout(volumeDebounceTimer);
             volumeDebounceTimer = setTimeout(async () => {
-                await fetch('/api/volume', {
+                const url = smtcFallbackActive ? '/api/system-volume' : '/api/volume';
+                await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ volume: newVolume })
@@ -1709,6 +1904,11 @@
                 const banner = document.getElementById('scope-banner');
                 const message = document.getElementById('scope-banner-message');
 
+                // Setup screen only when there are no credentials at all.
+                // Everything else (revoked token, missing scopes) is handled by the banner.
+                setHidden(setupScreen, data.reason !== 'not_authenticated');
+                setHidden(playerScreen, data.reason === 'not_authenticated');
+
                 const needsReauth = !data.ok;
 
                 if (needsReauth) {
@@ -1764,14 +1964,78 @@
             setWidth(progressFill, ((position / localProgress.duration) * 100).toFixed(2) + '%');
         }
 
-        // Initialize
-        loadAccentColor();
-        checkScopeStatus();
-        updatePlayback();
-        setInterval(updatePlayback, 2000); // Every 2 seconds
-        setInterval(tickLocalProgress, 250); // Smooth local interpolation
-        updateVolumeSliderFill(50);
+        let playbackInterval = null;
+        let forceSmtc = 0;
+
+        // Init runs after DOMContentLoaded so elements declared later in <body>
+        // (rate-pill, scope-banner, queue/playlist icons & overlays) exist.
+        // Without this gate the script — embedded mid-body — runs before those
+        // nodes are parsed and any getElementById against them returns null.
+        function init() {
+            loadAccentColor();
+            checkScopeStatus();
+
+            // Manual dismiss for the rate-limit pill — hides the pill but the
+            // backoff timer and SMTC fallback continue running underneath.
+            document.getElementById('rate-pill-close').addEventListener('click', () => {
+                document.getElementById('rate-pill').classList.remove('visible');
+            });
+
+            // Debug trigger: ?force-smtc=<seconds> forces the SMTC fallback
+            forceSmtc = parseInt(new URLSearchParams(location.search).get('force-smtc') || '0', 10);
+            if (forceSmtc > 0) {
+                rateLimitedUntil = Date.now() + forceSmtc * 1000;
+                startRateLimitIndicator();
+            } else {
+                updatePlayback();
+            }
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    stopPolling();
+                } else {
+                    updatePlayback();
+                    startPolling();
+                }
+            });
+            startPolling();
+
+            // Run the 250ms tick from a Web Worker — main-thread setInterval gets
+            // throttled hard when the page is hidden / iframed offscreen (iCUE,
+            // background tabs). Workers aren't subject to that throttling.
+            try {
+                const workerSrc = `setInterval(()=>postMessage(0),250)`;
+                const tickWorker = new Worker(URL.createObjectURL(new Blob([workerSrc], { type: 'application/javascript' })));
+                tickWorker.onmessage = tickLocalProgress;
+            } catch (e) {
+                console.warn('Tick worker failed, falling back to setInterval:', e);
+                setInterval(tickLocalProgress, 250);
+            }
+            updateVolumeSliderFill(50);
+        }
+
+        function startPolling() {
+            if (playbackInterval || forceSmtc > 0) return;
+            playbackInterval = setInterval(updatePlayback, 3000);
+        }
+        function stopPolling() {
+            if (!playbackInterval) return;
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     </script>
+
+    <!-- Small rate-limit indicator; last-known playback stays visible underneath -->
+    <div id="rate-pill" class="rate-pill">
+        <span id="rate-pill-text">Rate limited</span>
+        <button id="rate-pill-close" class="rate-pill-close" aria-label="Dismiss" type="button">×</button>
+    </div>
 
     <!-- Re-auth banner (shown when saved token is missing required scopes) -->
     <div id="scope-banner" class="scope-banner hidden">
