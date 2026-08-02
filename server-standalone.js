@@ -3,12 +3,23 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 let CLIENT_ID = null;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
+
+const REQUIRED_SCOPES = [
+    'user-read-playback-state',
+    'user-modify-playback-state',
+    'user-read-currently-playing',
+    'user-library-read',
+    'user-library-modify',
+    'user-read-recently-played'
+];
+const SCOPE_STRING = REQUIRED_SCOPES.join(' ');
 
 // desc: Determine data directory - use electron-store location
 const getDataDir = () => {
@@ -24,6 +35,7 @@ const LAST_DEVICE_FILE = path.join(DATA_DIR, '.last-device.json');
 
 let tokenData = null;
 let lastDeviceId = null;
+let authState = { valid: true, reason: null };
 
 // desc: Get Spotify API headers
 function getSpotifyHeaders(token) {
@@ -150,6 +162,15 @@ function generateCodeChallenge(verifier) {
 app.use(express.json({ charset: 'utf-8' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Any mutating control request invalidates the /api/current cache so the next
+// poll reflects the new state immediately instead of waiting for TTL.
+app.use((req, res, next) => {
+    if ((req.method === 'POST' || req.method === 'PUT') && req.path.startsWith('/api/')) {
+        invalidateCurrentCache();
+    }
+    next();
+});
+
 let codeVerifier = '';
 
 // desc: API status endpoint
@@ -266,14 +287,15 @@ app.get('/auth/start', (req, res) => {
     codeVerifier = generateCodeVerifier();
     const codeChallenge = generateCodeChallenge(codeVerifier);
 
-    const scope = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
+    const forceDialog = req.query.force === '1';
     const authUrl = `https://accounts.spotify.com/authorize?` +
         `client_id=${CLIENT_ID}` +
         `&response_type=code` +
         `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
         `&code_challenge_method=S256` +
         `&code_challenge=${codeChallenge}` +
-        `&scope=${encodeURIComponent(scope)}`;
+        `&scope=${encodeURIComponent(SCOPE_STRING)}` +
+        (forceDialog ? `&show_dialog=true` : '');
 
     res.redirect(authUrl);
 });
@@ -307,9 +329,12 @@ app.get('/callback', async (req, res) => {
             tokenData = {
                 access_token: data.access_token,
                 refresh_token: data.refresh_token,
-                expires_at: Date.now() + (data.expires_in * 1000)
+                expires_at: Date.now() + (data.expires_in * 1000),
+                scope: data.scope || ''
             };
             saveToken(tokenData);
+            authState = { valid: true, reason: null };
+            console.log('[AUTH] Token granted with scopes:', data.scope || '(not reported)');
             res.redirect('/setup-complete.html');
         } else {
             res.status(400).send('Failed to get access token: ' + JSON.stringify(data));
@@ -320,55 +345,157 @@ app.get('/callback', async (req, res) => {
     }
 });
 
-// desc: Ensure OAuth token is valid, refresh if expired
+// desc: Exchange refresh_token for a new access token; returns true on success
+async function refreshAccessToken() {
+    if (!tokenData || !tokenData.refresh_token) return false;
+    try {
+        const response = await fetch('https://accounts.spotify.com/api/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: CLIENT_ID,
+                grant_type: 'refresh_token',
+                refresh_token: tokenData.refresh_token
+            })
+        });
+        const data = await response.json();
+
+        if (data.access_token) {
+            tokenData.access_token = data.access_token;
+            tokenData.expires_at = Date.now() + (data.expires_in * 1000);
+            if (data.refresh_token) tokenData.refresh_token = data.refresh_token;
+            if (data.scope) tokenData.scope = data.scope;
+            saveToken(tokenData);
+            authState = { valid: true, reason: null };
+            return true;
+        }
+
+        console.error('[AUTH] Refresh failed:', data);
+        authState = { valid: false, reason: data.error || 'refresh_failed' };
+        return false;
+    } catch (error) {
+        console.error('[AUTH] Refresh request error:', error);
+        authState = { valid: false, reason: 'network_error' };
+        return false;
+    }
+}
+
+// desc: Ensure OAuth token is valid, refresh if expired. Throws a REAUTH_REQUIRED
+// error when the refresh token is revoked or otherwise unusable, so endpoints can
+// surface a clear signal to the client instead of silently making an expired call.
 async function ensureValidToken() {
     if (!tokenData) {
-        throw new Error('No token available. Please run /setup first.');
+        const err = new Error('Not authenticated');
+        err.code = 'NOT_AUTHENTICATED';
+        throw err;
     }
 
-    if (Date.now() >= tokenData.expires_at - 60000) { // Refresh 1 minute before expiry
-        try {
-            const response = await fetch('https://accounts.spotify.com/api/token', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    client_id: CLIENT_ID,
-                    grant_type: 'refresh_token',
-                    refresh_token: tokenData.refresh_token
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.access_token) {
-                tokenData.access_token = data.access_token;
-                tokenData.expires_at = Date.now() + (data.expires_in * 1000);
-                if (data.refresh_token) {
-                    tokenData.refresh_token = data.refresh_token;
-                }
-                saveToken(tokenData);
-            }
-        } catch (error) {
-            console.error('Error refreshing token:', error);
-            throw error;
+    if (Date.now() >= tokenData.expires_at - 60000) {
+        const ok = await refreshAccessToken();
+        if (!ok) {
+            const err = new Error('Re-authorization required');
+            err.code = 'REAUTH_REQUIRED';
+            err.reason = authState.reason || 'refresh_failed';
+            throw err;
         }
     }
 
     return tokenData.access_token;
 }
 
+// desc: Map auth errors to a 401 response; returns true if handled
+function handleAuthError(err, res) {
+    if (err && (err.code === 'REAUTH_REQUIRED' || err.code === 'NOT_AUTHENTICATED')) {
+        res.status(401).json({
+            error: err.code === 'NOT_AUTHENTICATED' ? 'not_authenticated' : 'reauth_required',
+            reason: err.reason || null
+        });
+        return true;
+    }
+    return false;
+}
+
+// desc: Report whether re-auth is needed (token revoked, missing scopes, or not authenticated)
+app.get('/api/scope-status', async (req, res) => {
+    if (!tokenData) {
+        return res.json({
+            authenticated: false,
+            ok: false,
+            missing: REQUIRED_SCOPES,
+            reason: 'not_authenticated'
+        });
+    }
+
+    // Legacy tokens from earlier builds didn't save the scope field. Probe via
+    // refresh so we don't mis-report them as missing every scope. Also detects
+    // revoked refresh tokens as a side effect.
+    if (!tokenData.scope && tokenData.refresh_token) {
+        await refreshAccessToken();
+    }
+
+    if (!authState.valid) {
+        return res.json({
+            authenticated: true,
+            ok: false,
+            missing: [],
+            reason: authState.reason || 'refresh_failed'
+        });
+    }
+
+    const granted = (tokenData.scope || '').split(' ').filter(Boolean);
+    const missing = REQUIRED_SCOPES.filter(s => !granted.includes(s));
+    res.json({
+        authenticated: true,
+        ok: missing.length === 0,
+        granted,
+        missing,
+        reason: missing.length ? 'missing_scopes' : null
+    });
+});
+
+// In-memory cache for /me/player — multiple client instances (iCUE widget,
+// preview pane, browser tabs) all share one upstream Spotify call per window.
+const CURRENT_CACHE_TTL = 2500;
+let currentCache = { expiresAt: 0, status: 0, body: null, rateLimited: false, retryAfter: 0 };
+function invalidateCurrentCache() { currentCache.expiresAt = 0; }
+
 // desc: Get current Spotify playback state
 app.get('/api/current', async (req, res) => {
     try {
+        // Serve from cache if fresh
+        if (Date.now() < currentCache.expiresAt) {
+            if (currentCache.rateLimited) {
+                res.set('Retry-After', String(currentCache.retryAfter));
+                return res.status(429).json({ error: 'rate_limited', retryAfter: currentCache.retryAfter });
+            }
+            if (currentCache.status === 204) return res.json({ playing: false });
+            return res.json(currentCache.body);
+        }
+
         const token = await ensureValidToken();
         const response = await fetch('https://api.spotify.com/v1/me/player', {
             headers: getSpotifyHeaders(token)
         });
 
         if (response.status === 204) {
+            currentCache = { expiresAt: Date.now() + CURRENT_CACHE_TTL, status: 204, body: null, rateLimited: false, retryAfter: 0 };
             return res.json({ playing: false });
+        }
+
+        if (response.status === 401) {
+            // Access token rejected by Spotify even though our refresh said OK
+            // (can happen if the token was revoked server-side). Flag for re-auth.
+            authState = { valid: false, reason: 'token_revoked' };
+            return res.status(401).json({ error: 'reauth_required', reason: 'token_revoked' });
+        }
+
+        if (response.status === 429) {
+            const retryAfter = parseInt(response.headers.get('retry-after') || '10', 10);
+            // Cache the rate-limit state for the full retry window so every client
+            // shares the same backoff and we don't hammer Spotify further.
+            currentCache = { expiresAt: Date.now() + retryAfter * 1000, status: 429, body: null, rateLimited: true, retryAfter };
+            res.set('Retry-After', String(retryAfter));
+            return res.status(429).json({ error: 'rate_limited', retryAfter });
         }
 
         const data = await response.json();
@@ -378,8 +505,10 @@ app.get('/api/current', async (req, res) => {
             saveLastDevice(data.device.id, data.device.name);
         }
 
+        currentCache = { expiresAt: Date.now() + CURRENT_CACHE_TTL, status: response.status, body: data, rateLimited: false, retryAfter: 0 };
         res.json(data);
     } catch (error) {
+        if (handleAuthError(error, res)) return;
         console.error('Error getting current track:', error);
         res.status(500).json({ error: error.message });
     }
@@ -737,6 +866,111 @@ app.get('/api/context/:contextId/tracks', async (req, res) => {
     }
 });
 
+// desc: Check if a track is saved in user's library (uses Feb 2026 /me/library endpoint)
+app.get('/api/track-saved/:id', async (req, res) => {
+    try {
+        const token = await ensureValidToken();
+        const { id } = req.params;
+        const uri = `spotify:track:${id}`;
+        const response = await fetch(`https://api.spotify.com/v1/me/library/contains?uris=${encodeURIComponent(uri)}`, {
+            headers: getSpotifyHeaders(token)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[TRACK-SAVED] Failed:', response.status, errorText);
+            return res.status(response.status).json({ error: 'Failed to check saved status' });
+        }
+
+        const data = await response.json();
+        res.json({ saved: Array.isArray(data) ? data[0] === true : false });
+    } catch (error) {
+        console.error('Error checking saved track:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// desc: Save or remove a track from user's library (uses Feb 2026 /me/library endpoint)
+app.put('/api/track-saved', async (req, res) => {
+    try {
+        const { id, saved } = req.body;
+        if (!id) {
+            return res.status(400).json({ error: 'Missing track id' });
+        }
+
+        const token = await ensureValidToken();
+        const uri = `spotify:track:${id}`;
+        const method = saved ? 'PUT' : 'DELETE';
+        const response = await fetch(`https://api.spotify.com/v1/me/library?uris=${encodeURIComponent(uri)}`, {
+            method,
+            headers: getSpotifyHeaders(token)
+        });
+
+        if (!response.ok && response.status !== 200 && response.status !== 204) {
+            const errorText = await response.text();
+            console.error('[TRACK-SAVED] Toggle failed:', response.status, errorText);
+            return res.status(response.status).json({ error: 'Failed to toggle saved status' });
+        }
+
+        res.json({ success: true, saved: !!saved });
+    } catch (error) {
+        console.error('Error toggling saved track:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// desc: Get the current user's playback queue
+app.get('/api/queue', async (req, res) => {
+    try {
+        const token = await ensureValidToken();
+        const response = await fetch('https://api.spotify.com/v1/me/player/queue', {
+            headers: getSpotifyHeaders(token)
+        });
+
+        if (response.status === 204) {
+            return res.json({ currently_playing: null, queue: [] });
+        }
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[QUEUE] Failed:', response.status, errorText);
+            return res.status(response.status).json({ error: 'Failed to load queue', queue: [] });
+        }
+
+        const data = await response.json();
+        res.json({
+            currently_playing: data.currently_playing || null,
+            queue: data.queue || []
+        });
+    } catch (error) {
+        console.error('Error getting queue:', error);
+        res.status(500).json({ error: error.message, queue: [] });
+    }
+});
+
+// desc: Get the user's recently played tracks
+app.get('/api/recently-played', async (req, res) => {
+    try {
+        const token = await ensureValidToken();
+        const limit = Math.min(50, parseInt(req.query.limit || '30', 10));
+        const response = await fetch(`https://api.spotify.com/v1/me/player/recently-played?limit=${limit}`, {
+            headers: getSpotifyHeaders(token)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[RECENT] Failed:', response.status, errorText);
+            return res.status(response.status).json({ error: 'Failed to load recently played', items: [] });
+        }
+
+        const data = await response.json();
+        res.json({ items: data.items || [] });
+    } catch (error) {
+        console.error('Error getting recently played:', error);
+        res.status(500).json({ error: error.message, items: [] });
+    }
+});
+
 // desc: Play specific track from context
 app.post('/api/play-track', async (req, res) => {
     try {
@@ -786,6 +1020,248 @@ app.post('/api/play-track', async (req, res) => {
         console.error('Error playing track:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+// Windows SMTC fallback — reads the system's currently-playing media via a
+// PowerShell subprocess that talks to Windows.Media.Control. Used by the
+// player UI when Spotify rate-limits us so the widget keeps showing live info.
+const SMTC_SCRIPT = `
+$ErrorActionPreference = 'Stop'
+try {
+    Add-Type -AssemblyName 'System.Runtime.WindowsRuntime' | Out-Null
+    $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+        $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation\`1'
+    })[0]
+    function Await($task, $resultType) {
+        $asTask = $asTaskGeneric.MakeGenericMethod($resultType)
+        $netTask = $asTask.Invoke($null, @($task))
+        $netTask.Wait(-1) | Out-Null
+        $netTask.Result
+    }
+    [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime] | Out-Null
+    $mgr = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+    $session = $mgr.GetCurrentSession()
+    if ($null -eq $session) { '{}'; exit }
+    [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties, Windows.Media.Control, ContentType=WindowsRuntime] | Out-Null
+    $props = Await ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+    $info = $session.GetPlaybackInfo()
+    $timeline = $session.GetTimelineProperties()
+    $out = @{
+        title = $props.Title
+        artist = $props.Artist
+        album = $props.AlbumTitle
+        isPlaying = ($info.PlaybackStatus -eq 'Playing')
+        appId = $session.SourceAppUserModelId
+        position = [int]$timeline.Position.TotalMilliseconds
+        duration = [int]$timeline.EndTime.TotalMilliseconds
+        positionReportedAt = [int64]$timeline.LastUpdatedTime.ToUnixTimeMilliseconds()
+    }
+    $out | ConvertTo-Json -Compress
+} catch {
+    @{ error = $_.Exception.Message } | ConvertTo-Json -Compress
+}
+`;
+
+let smtcCache = { expiresAt: 0, data: null };
+const SMTC_CACHE_TTL = 2500;
+
+function getSystemMedia() {
+    if (Date.now() < smtcCache.expiresAt) return Promise.resolve(smtcCache.data);
+    return new Promise((resolve) => {
+        const encoded = Buffer.from(SMTC_SCRIPT, 'utf16le').toString('base64');
+        const proc = spawn('powershell.exe', [
+            '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-EncodedCommand', encoded
+        ], { windowsHide: true });
+        let stdout = '';
+        let stderr = '';
+        const timer = setTimeout(() => { try { proc.kill(); } catch (_) {} }, 2500);
+        proc.stdout.on('data', (d) => stdout += d);
+        proc.stderr.on('data', (d) => stderr += d);
+        proc.on('close', () => {
+            clearTimeout(timer);
+            let data;
+            try {
+                data = JSON.parse((stdout || '{}').trim());
+            } catch (e) {
+                data = { error: 'parse_failed' };
+            }
+            smtcCache = { expiresAt: Date.now() + SMTC_CACHE_TTL, data };
+            resolve(data);
+        });
+        proc.on('error', (e) => {
+            clearTimeout(timer);
+            resolve({ error: e.message });
+        });
+    });
+}
+
+// desc: Read the system's currently-playing media (Windows SMTC fallback)
+app.get('/api/system-media', async (req, res) => {
+    const data = await getSystemMedia();
+    res.json(data);
+});
+
+const SMTC_COMMAND_METHODS = {
+    play_pause: 'TryTogglePlayPauseAsync',
+    next: 'TrySkipNextAsync',
+    previous: 'TrySkipPreviousAsync'
+};
+
+// Shared Core Audio PowerShell shim — used for GET/SET system volume. Cost is
+// ~700ms per invocation because of the C# Add-Type compile; acceptable for
+// user-initiated volume changes, not for polling.
+const AUDIO_SHIM = `
+Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+[Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IAudioEndpointVolume {
+    int f(); int g(); int h(); int i();
+    int SetMasterVolumeLevelScalar(float fLevel, System.Guid pguidEventContext);
+    int j();
+    int GetMasterVolumeLevelScalar(out float pfLevel);
+    int k(); int l(); int m(); int n();
+    int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, System.Guid pguidEventContext);
+    int GetMute(out bool pbMute);
+}
+[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDevice {
+    int Activate(ref System.Guid id, int clsCtx, int activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object aev);
+}
+[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDeviceEnumerator {
+    int f();
+    int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
+}
+[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorComObject { }
+public class Audio {
+    static IAudioEndpointVolume Vol() {
+        var e = new MMDeviceEnumeratorComObject() as IMMDeviceEnumerator;
+        IMMDevice dev = null;
+        Marshal.ThrowExceptionForHR(e.GetDefaultAudioEndpoint(0, 1, out dev));
+        System.Guid g = typeof(IAudioEndpointVolume).GUID;
+        object o;
+        Marshal.ThrowExceptionForHR(dev.Activate(ref g, 23, 0, out o));
+        return (IAudioEndpointVolume)o;
+    }
+    public static float Get() { float v = 0; Marshal.ThrowExceptionForHR(Vol().GetMasterVolumeLevelScalar(out v)); return v; }
+    public static void Set(float v) { Marshal.ThrowExceptionForHR(Vol().SetMasterVolumeLevelScalar(v, System.Guid.Empty)); }
+    public static void SetMute(bool m) { Marshal.ThrowExceptionForHR(Vol().SetMute(m, System.Guid.Empty)); }
+}
+"@ -Language CSharp | Out-Null
+`;
+
+function runPowerShell(scriptText, timeoutMs = 3500) {
+    return new Promise((resolve) => {
+        const encoded = Buffer.from(scriptText, 'utf16le').toString('base64');
+        const proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], { windowsHide: true });
+        let stdout = '';
+        const timer = setTimeout(() => { try { proc.kill(); } catch (_) {} }, timeoutMs);
+        proc.stdout.on('data', (d) => stdout += d);
+        proc.on('close', () => {
+            clearTimeout(timer);
+            try { resolve(JSON.parse((stdout || '{}').trim())); }
+            catch (e) { resolve({ success: false, error: 'parse_failed', raw: stdout }); }
+        });
+        proc.on('error', (e) => { clearTimeout(timer); resolve({ success: false, error: e.message }); });
+    });
+}
+
+// desc: Read current system volume via Core Audio (slow ~900ms, user-triggered only)
+app.get('/api/system-volume', async (req, res) => {
+    const script = AUDIO_SHIM + `\n@{ volume = [int]([Audio]::Get() * 100) } | ConvertTo-Json -Compress`;
+    const result = await runPowerShell(script);
+    res.json(result);
+});
+
+// desc: Set system volume (0-100) via Core Audio. Mutes when volume reaches 0,
+// unmutes otherwise — matches what users expect when dragging a slider.
+app.post('/api/system-volume', async (req, res) => {
+    const volume = Math.max(0, Math.min(100, parseInt(req.body && req.body.volume, 10)));
+    if (Number.isNaN(volume)) return res.status(400).json({ error: 'invalid_volume' });
+    const muteFlag = volume === 0 ? '$true' : '$false';
+    const script = AUDIO_SHIM + `\n[Audio]::Set(${volume / 100}); [Audio]::SetMute(${muteFlag}); @{ success = $true; volume = ${volume}; muted = ${muteFlag} } | ConvertTo-Json -Compress`;
+    const result = await runPowerShell(script);
+    res.json(result);
+});
+
+function runSMTCCommand(method) {
+    return new Promise((resolve) => {
+        const script = `
+$ErrorActionPreference = 'Stop'
+try {
+    Add-Type -AssemblyName 'System.Runtime.WindowsRuntime' | Out-Null
+    $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+        $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation\`1'
+    })[0]
+    function Await($task, $resultType) {
+        $asTask = $asTaskGeneric.MakeGenericMethod($resultType)
+        $netTask = $asTask.Invoke($null, @($task))
+        $netTask.Wait(-1) | Out-Null
+        $netTask.Result
+    }
+    [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime] | Out-Null
+    $mgr = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+    $session = $mgr.GetCurrentSession()
+    if ($null -eq $session) { @{ success = $false; error = 'no_session' } | ConvertTo-Json -Compress; exit }
+    $result = Await ($session.${method}()) ([bool])
+    @{ success = [bool]$result } | ConvertTo-Json -Compress
+} catch {
+    @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+}`;
+        const encoded = Buffer.from(script, 'utf16le').toString('base64');
+        const proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], { windowsHide: true });
+        let stdout = '';
+        const timer = setTimeout(() => { try { proc.kill(); } catch (_) {} }, 3000);
+        proc.stdout.on('data', (d) => stdout += d);
+        proc.on('close', () => {
+            clearTimeout(timer);
+            try { resolve(JSON.parse((stdout || '{}').trim())); }
+            catch (e) { resolve({ success: false, error: 'parse_failed' }); }
+        });
+        proc.on('error', (e) => { clearTimeout(timer); resolve({ success: false, error: e.message }); });
+    });
+}
+
+// desc: Send a play/pause/next/previous command to the system media session
+app.post('/api/system-media/:action', async (req, res) => {
+    if (req.params.action === 'seek') {
+        const positionMs = Math.max(0, parseInt(req.body && req.body.position, 10));
+        if (Number.isNaN(positionMs)) return res.status(400).json({ error: 'invalid_position' });
+        const ticks = positionMs * 10000; // 100-nanosecond units
+        const script = `
+$ErrorActionPreference = 'Stop'
+try {
+    Add-Type -AssemblyName 'System.Runtime.WindowsRuntime' | Out-Null
+    $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+        $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation\`1'
+    })[0]
+    function Await($task, $resultType) {
+        $asTask = $asTaskGeneric.MakeGenericMethod($resultType)
+        $netTask = $asTask.Invoke($null, @($task))
+        $netTask.Wait(-1) | Out-Null
+        $netTask.Result
+    }
+    [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media.Control, ContentType=WindowsRuntime] | Out-Null
+    $mgr = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+    $session = $mgr.GetCurrentSession()
+    if ($null -eq $session) { @{ success = $false; error = 'no_session' } | ConvertTo-Json -Compress; exit }
+    $result = Await ($session.TryChangePlaybackPositionAsync(${ticks})) ([bool])
+    @{ success = [bool]$result } | ConvertTo-Json -Compress
+} catch {
+    @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+}`;
+        const result = await runPowerShell(script);
+        smtcCache.expiresAt = 0;
+        return res.json(result);
+    }
+
+    const method = SMTC_COMMAND_METHODS[req.params.action];
+    if (!method) return res.status(400).json({ error: 'unknown_action' });
+    const result = await runSMTCCommand(method);
+    // invalidate the SMTC read cache so the next fetch reflects the new state
+    smtcCache.expiresAt = 0;
+    res.json(result);
 });
 
 // desc: Initialize server and load persisted data

@@ -34,34 +34,32 @@
             justify-content: center;
         }
 
-        /* Album Art als Hintergrund */
-        body::before {
-            content: '';
+        /* Album art background without any GPU filters — a dark vignette layer
+           above it provides the contrast text needs. Avoids compositor churn in
+           embedded Chromium hosts like iCUE. */
+        .bg-layer {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background-image: linear-gradient(135deg, #0c1f3e 0%, #1e3a6e 50%, #2a5a9c 100%);
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            filter: brightness(0.4) blur(4px);
-            transform: scale(1.1);
             z-index: -2;
-            transition: background-image 0.5s ease;
+            pointer-events: none;
         }
 
-        /* Vignette Overlay */
-        body::after {
-            content: '';
+        .bg-vignette {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
+            background: radial-gradient(circle at center, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.92) 100%);
             z-index: -1;
+            pointer-events: none;
         }
 
         .container {
@@ -143,9 +141,9 @@
 
         .progress-fill {
             height: 100%;
+            width: 0;
             background: var(--accent-color);
             border-radius: 1.5vh;
-            transition: width 0.1s linear;
             box-shadow: 0 0 10px var(--accent-color);
             position: relative;
         }
@@ -180,15 +178,14 @@
             width: clamp(70px, 10vw, 120px);
             height: clamp(70px, 10vw, 120px);
             border: none;
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(40, 40, 55, 0.55);
             color: white;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
+            transition: transform 0.2s ease, background 0.2s ease;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
 
@@ -331,8 +328,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            backdrop-filter: blur(10px);
+            background: rgba(0, 0, 0, 0.92);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -397,32 +393,38 @@
             transform: translateY(0);
         }
 
-        /* Playlist Icon */
-        .playlist-icon {
+        /* Overlay Icons (Playlist + Queue) */
+        .overlay-icon {
             position: fixed;
             top: 20px;
-            right: 20px;
-            width: clamp(40px, 6vw, 60px);
-            height: clamp(40px, 6vw, 60px);
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
+            width: clamp(50px, 7vw, 80px);
+            height: clamp(50px, 7vw, 80px);
+            background: rgba(0, 0, 0, 0.55);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
             z-index: 100;
             border: 2px solid rgba(255, 255, 255, 0.1);
         }
 
-        .playlist-icon:hover {
+        #playlist-icon {
+            right: 20px;
+        }
+
+        #queue-icon {
+            right: calc(30px + clamp(50px, 7vw, 80px));
+        }
+
+        .overlay-icon:hover {
             background: rgba(0, 0, 0, 0.7);
             transform: scale(1.1);
             border-color: var(--accent-color);
         }
 
-        .playlist-icon svg {
+        .overlay-icon svg {
             width: 60%;
             height: 60%;
             fill: white;
@@ -437,8 +439,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.95);
-            backdrop-filter: blur(20px);
+            background: rgba(0, 0, 0, 0.96);
             z-index: 200;
             display: flex;
             flex-direction: column;
@@ -652,6 +653,173 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Rate limit pill — small, unobtrusive while the last known track keeps
+           displaying so the widget doesn't blank out. */
+        .rate-pill {
+            position: fixed;
+            top: clamp(16px, 2vh, 24px);
+            left: clamp(16px, 2vw, 24px);
+            background: rgba(255, 180, 0, 0.92);
+            color: #1a1a1a;
+            padding: clamp(4px, 0.8vh, 8px) clamp(8px, 1.2vw, 12px) clamp(4px, 0.8vh, 8px) clamp(10px, 1.4vw, 16px);
+            border-radius: 999px;
+            font-size: clamp(11px, 1.4vw, 14px);
+            font-weight: 600;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+            z-index: 250;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rate-pill.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .rate-pill-close {
+            background: transparent;
+            border: none;
+            color: inherit;
+            font-size: clamp(14px, 1.8vw, 18px);
+            line-height: 1;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 50%;
+            font-family: inherit;
+            opacity: 0.7;
+            transition: opacity 0.15s ease, background 0.15s ease;
+        }
+
+        .rate-pill-close:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        /* While the SMTC fallback is active, Spotify-only controls are disabled.
+           Play/prev/next, seek, and volume are re-routed to system APIs. */
+        body.smtc-mode #shuffle-btn,
+        body.smtc-mode #repeat-btn,
+        body.smtc-mode #like-btn,
+        body.smtc-mode #queue-icon,
+        body.smtc-mode #playlist-icon {
+            opacity: 0.15;
+            pointer-events: none;
+            filter: grayscale(0.7);
+        }
+
+        /* Scope Re-auth Banner */
+        .scope-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 180, 0, 0.95);
+            color: #1a1a1a;
+            padding: clamp(10px, 1.5vh, 14px) clamp(16px, 3vw, 24px);
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(12px, 2vw, 20px);
+            font-weight: 600;
+            font-size: clamp(13px, 1.8vw, 16px);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+            flex-wrap: wrap;
+            text-align: center;
+        }
+
+        .scope-banner a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .scope-banner button {
+            padding: clamp(6px, 1vh, 10px) clamp(14px, 2vw, 22px);
+            background: #1a1a1a;
+            color: #fff;
+            border: none;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: inherit;
+            font-family: inherit;
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+        .scope-banner button:hover {
+            background: #000;
+            transform: scale(1.04);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: clamp(30px, 6vh, 60px);
+            transform: translate(-50%, 30px);
+            background: rgba(20, 20, 25, 0.92);
+            color: #fff;
+            padding: clamp(10px, 1.8vh, 16px) clamp(20px, 3vw, 30px);
+            border-radius: 999px;
+            font-size: clamp(14px, 2vw, 18px);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 500;
+            white-space: nowrap;
+        }
+
+        .toast.visible {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+
+        .toast svg {
+            width: clamp(18px, 2.5vw, 22px);
+            height: clamp(18px, 2.5vw, 22px);
+            flex-shrink: 0;
+            fill: var(--accent-color);
+        }
+
+        /* Queue Tabs */
+        .queue-tabs {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .queue-tab {
+            padding: 8px 18px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.55);
+            font-size: clamp(14px, 2.5vw, 18px);
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .queue-tab:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .queue-tab.active {
+            color: #ffffff;
+            border-bottom-color: var(--accent-color);
+        }
+
         /* Load More Button */
         .load-more-btn {
             display: block;
@@ -689,23 +857,25 @@
 </head>
 
 <body>
+    <div class="bg-layer" id="bg-layer"></div>
+    <div class="bg-vignette"></div>
     <div class="container">
-        <div id="setup-screen" style="text-align: center;">
+        <div id="setup-screen" class="hidden" style="text-align: center;">
             <h1>🎵</h1>
             <p>Cxeify</p>
             <div class="setup-message">
-                <p>⚠️ Setup erforderlich!</p>
-                <p>Öffne im Browser:</p>
-                <p><a href="http://127.0.0.1:3000/setup">http://127.0.0.1:3000/setup</a></p>
+                <p>⚠️ Setup required</p>
+                <p>Open in your browser:</p>
+                <p><a href="http://127.0.0.1:3000/setup" target="_blank" rel="noopener">http://127.0.0.1:3000/setup</a></p>
             </div>
         </div>
 
-        <div id="player-screen" class="hidden">
+        <div id="player-screen">
             <img id="album-image" src="" alt="Album Cover" style="display: none;">
             <div class="main-content">
                 <div class="track-info">
-                    <h2 id="track-name">Kein Track</h2>
-                    <p id="artist-name">Kein Künstler</p>
+                    <h2 id="track-name">No Playback</h2>
+                    <p id="artist-name">Start Spotify on a device</p>
                 </div>
                 <div class="progress-container">
                     <span id="current-time">0:00</span>
@@ -715,6 +885,7 @@
                     <span id="duration">0:00</span>
                 </div>
                 <div class="controls">
+                    <div class="control-btn control-btn-small" aria-hidden="true" style="visibility: hidden; background: transparent; box-shadow: none;"></div>
                     <button id="shuffle-btn" class="control-btn control-btn-small" title="Shuffle">
                         <svg viewBox="0 0 24 24" fill="currentColor">
                             <path
@@ -745,6 +916,14 @@
                         </svg>
                         <span id="repeat-one" class="repeat-one-indicator hidden">1</span>
                     </button>
+                    <button id="like-btn" class="control-btn control-btn-small" title="Add to Liked Songs">
+                        <svg id="like-icon-outline" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z" />
+                        </svg>
+                        <svg id="like-icon-filled" class="hidden" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
+                    </button>
                 </div>
                 <div class="volume-container">
                     <svg class="volume-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -764,6 +943,23 @@
         let volumeDebounceTimer = null;
         let lastSetVolume = null;
         let errorState = { hasError: false, retryCount: 0 };
+        let lastAlbumArtUrl = null;
+        let localProgress = { ms: 0, duration: 0, syncedAt: 0, isPlaying: false };
+
+        // desc: Only touch DOM when the value actually changes — avoids the
+        // per-poll style recalc cascade that flashes iCUE's embedded compositor.
+        function setText(el, value) {
+            if (el.textContent !== value) el.textContent = value;
+        }
+        function setHidden(el, hidden) {
+            if (el.classList.contains('hidden') !== hidden) el.classList.toggle('hidden', hidden);
+        }
+        function setActive(el, active) {
+            if (el.classList.contains('active') !== active) el.classList.toggle('active', active);
+        }
+        function setWidth(el, value) {
+            if (el.style.width !== value) el.style.width = value;
+        }
 
         // desc: Load custom accent color from server settings
         async function loadAccentColor() {
@@ -850,11 +1046,196 @@
         const progressFill = document.getElementById('progress-fill');
         const playIcon = document.getElementById('play-icon');
         const pauseIcon = document.getElementById('pause-icon');
+        const likeBtn = document.getElementById('like-btn');
+        const likeIconOutline = document.getElementById('like-icon-outline');
+        const likeIconFilled = document.getElementById('like-icon-filled');
+
+        let currentTrackId = null;
+        let currentTrackSaved = false;
+
+        // desc: Fetch saved state for a track and update the like button
+        async function refreshLikeState(trackId) {
+            if (!trackId) {
+                currentTrackSaved = false;
+                setLikeButtonState(false);
+                return;
+            }
+            try {
+                const response = await fetch(`/api/track-saved/${trackId}`);
+                if (!response.ok) return;
+                const data = await response.json();
+                currentTrackSaved = !!data.saved;
+                setLikeButtonState(currentTrackSaved);
+            } catch (error) {
+                console.error('Error checking like state:', error);
+            }
+        }
+
+        // desc: Brief centered popup used for like/unlike feedback
+        let toastTimer = null;
+        function showToast(message, iconType) {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-message');
+
+            const heartFilled = '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>';
+            const heartBroken = '<path d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/>';
+
+            icon.innerHTML = iconType === 'removed' ? heartBroken : heartFilled;
+            msg.textContent = message;
+            toast.classList.add('visible');
+
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 2000);
+        }
+
+        // desc: Swap heart icon between outline and filled
+        function setLikeButtonState(saved) {
+            if (saved) {
+                likeBtn.classList.add('active');
+                likeIconOutline.classList.add('hidden');
+                likeIconFilled.classList.remove('hidden');
+                likeBtn.title = 'Remove from Liked Songs';
+            } else {
+                likeBtn.classList.remove('active');
+                likeIconOutline.classList.remove('hidden');
+                likeIconFilled.classList.add('hidden');
+                likeBtn.title = 'Add to Liked Songs';
+            }
+        }
+
+        let rateLimitedUntil = 0;
+        let rateLimitTicker = null;
+
+        // desc: When Spotify Web API isn't usable (rate limit, or no active
+        // device), pull the system's currently-playing media from Windows SMTC
+        // and display that. Small pill indicates the fallback is active.
+        let smtcFallbackActive = false;
+        let smtcReason = null; // 'rate-limit' | 'idle'
+        let smtcPollTimer = null;
+
+        async function fetchSystemMedia() {
+            try {
+                const response = await fetch('/api/system-media');
+                if (!response.ok) return null;
+                const data = await response.json();
+                if (data && data.title) return data;
+                return null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function applySystemMediaToUI(data) {
+            if (!data) return;
+            setText(trackName, data.title || 'Unknown');
+            setText(artistName, data.artist || '');
+            setHidden(playIcon, !!data.isPlaying);
+            setHidden(pauseIcon, !data.isPlaying);
+            if (data.duration) {
+                setText(duration, formatTime(data.duration));
+                localProgress.duration = data.duration;
+                // SMTC's Position is only refreshed when the media app sends an
+                // update (Spotify can go several seconds between updates). Use
+                // positionReportedAt to figure out the REAL current position, so
+                // the local tick doesn't snap backward each poll.
+                const reportedAt = data.positionReportedAt || Date.now();
+                const skew = Math.max(0, Date.now() - reportedAt); // clock skew guard
+                localProgress.ms = (data.position || 0) + (data.isPlaying ? skew : 0);
+                localProgress.syncedAt = Date.now();
+                localProgress.isPlaying = !!data.isPlaying;
+                tickLocalProgress();
+            }
+        }
+
+        async function pollSMTCFallback() {
+            const data = await fetchSystemMedia();
+            if (data) applySystemMediaToUI(data);
+        }
+
+        function enterSmtcFallback(reason) {
+            const pill = document.getElementById('rate-pill');
+            const label = document.getElementById('rate-pill-text');
+            const wasActive = smtcFallbackActive;
+            smtcFallbackActive = true;
+            smtcReason = reason;
+            document.body.classList.add('smtc-mode');
+
+            if (!wasActive) {
+                pollSMTCFallback();
+                clearInterval(smtcPollTimer);
+                smtcPollTimer = setInterval(pollSMTCFallback, 3000);
+
+                // Populate the volume slider with the actual system volume (one-shot)
+                fetch('/api/system-volume').then(r => r.ok ? r.json() : null).then(data => {
+                    if (!data || typeof data.volume !== 'number' || isAdjustingVolume) return;
+                    volumeSlider.value = data.volume;
+                    updateVolumeSliderFill(data.volume);
+                }).catch(() => {});
+            }
+
+            pill.classList.add('visible');
+            clearInterval(rateLimitTicker);
+            rateLimitTicker = null;
+
+            if (reason === 'rate-limit') {
+                const tick = () => {
+                    const secs = Math.max(0, Math.ceil((rateLimitedUntil - Date.now()) / 1000));
+                    if (secs <= 0) {
+                        exitSmtcFallback();
+                        updatePlayback();
+                        return;
+                    }
+                    setText(label, `Spotify rate-limited — showing system media · retrying in ${secs}s`);
+                };
+                tick();
+                rateLimitTicker = setInterval(tick, 1000);
+            } else if (reason === 'idle') {
+                setText(label, 'Spotify idle — showing system media');
+            }
+        }
+
+        function exitSmtcFallback() {
+            if (!smtcFallbackActive) return;
+            smtcFallbackActive = false;
+            smtcReason = null;
+            document.body.classList.remove('smtc-mode');
+            clearInterval(smtcPollTimer);
+            smtcPollTimer = null;
+            clearInterval(rateLimitTicker);
+            rateLimitTicker = null;
+            document.getElementById('rate-pill').classList.remove('visible');
+        }
+
+        // Backwards-compatible alias used by the rate-limit path
+        function startRateLimitIndicator() { enterSmtcFallback('rate-limit'); }
 
         // desc: Update player UI with current Spotify playback state
         async function updatePlayback() {
+            if (Date.now() < rateLimitedUntil) return; // backing off
+
             try {
                 const response = await fetch('/api/current');
+
+                if (response.status === 401) {
+                    // Token/refresh is dead — surface the re-auth banner and stop
+                    // hammering /api/current until the user re-authorizes.
+                    checkScopeStatus();
+                    return;
+                }
+
+                if (response.status === 429) {
+                    // Spotify rate-limited us — keep the last-known playback on
+                    // screen and surface a small pill with a countdown.
+                    const body = await response.json().catch(() => ({}));
+                    const retryAfter = Math.max(5, parseInt(body.retryAfter || response.headers.get('retry-after') || '10', 10));
+                    rateLimitedUntil = Date.now() + retryAfter * 1000;
+                    console.warn(`Rate limited by Spotify. Backing off ${retryAfter}s.`);
+                    startRateLimitIndicator();
+                    return;
+                }
 
                 if (!response.ok) {
                     throw new Error(`API returned ${response.status}`);
@@ -867,126 +1248,116 @@
                     errorState = { hasError: false, retryCount: 0 };
                 }
 
-                if (data.error === 'not_authenticated') {
-                    setupScreen.classList.remove('hidden');
-                    playerScreen.classList.add('hidden');
+                if (!data.item) {
+                    // No active Spotify device. Try SMTC — if something is playing
+                    // system-wide (paused Spotify, YouTube, etc.) show that instead
+                    // of the no-playback screen.
+                    const smtc = await fetchSystemMedia();
+                    if (smtc && smtc.title) {
+                        enterSmtcFallback('idle');
+                        applySystemMediaToUI(smtc);
+                        return;
+                    }
+
+                    setText(trackName, 'No Playback');
+                    setText(artistName, 'Start Spotify on a device');
+                    if (albumImage.src) albumImage.src = '';
+                    currentTrackId = null;
+                    setLikeButtonState(false);
+                    localProgress.isPlaying = false;
+
+                    // Distinct warm gradient so the no-playback state is visually
+                    // different from the default blue.
+                    const gradient = 'linear-gradient(135deg, #2a1c08 0%, #6e3a14 50%, #b07028 100%)';
+                    if (lastAlbumArtUrl !== gradient) {
+                        document.getElementById('bg-layer').style.backgroundImage = gradient;
+                        lastAlbumArtUrl = gradient;
+                    }
+
+                    updateVolumeSliderFill(volumeSlider.value);
                     return;
                 }
 
-                setupScreen.classList.add('hidden');
-                playerScreen.classList.remove('hidden');
-
-                if (!data.item) {
-                    trackName.textContent = 'No Playback';
-                    artistName.textContent = 'Start Spotify on a device';
-                    albumImage.src = '';
-                    
-                    // Set dark gradient background when no playback
-                    const styleSheet = document.styleSheets[0];
-                    for (let i = 0; i < styleSheet.cssRules.length; i++) {
-                        if (styleSheet.cssRules[i].selectorText === 'body::before') {
-                            styleSheet.cssRules[i].style.backgroundImage = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)';
-                            break;
-                        }
-                    }
-                    
-                    // Update volume slider with current accent color
-                    updateVolumeSliderFill(volumeSlider.value);
-                    
-                    return;
+                // Spotify has a track — exit any 'idle' SMTC fallback we were in
+                if (smtcFallbackActive && smtcReason === 'idle') {
+                    exitSmtcFallback();
                 }
 
                 currentPlaybackState = data;
 
-                trackName.textContent = data.item.name;
-                artistName.textContent = data.item.artists.map(a => a.name).join(', ');
+                if (data.item.id !== currentTrackId) {
+                    currentTrackId = data.item.id;
+                    refreshLikeState(currentTrackId);
+                }
 
-                // Album Art als Hintergrund setzen
+                setText(trackName, data.item.name);
+                setText(artistName, data.item.artists.map(a => a.name).join(', '));
+
+                // Album art background — only rewrite when the URL actually changes
                 const albumArtUrl = data.item.album.images[0]?.url || '';
-                albumImage.src = albumArtUrl;
-                if (albumArtUrl) {
-                    document.body.style.setProperty('--album-bg', `url(${albumArtUrl})`);
-                    document.querySelector('body::before') || (document.body.style.backgroundImage = `url(${albumArtUrl})`);
-                    // Direkt auf body::before zugreifen ist nicht möglich, daher setzen wir es über style
-                    const styleSheet = document.styleSheets[0];
-                    // Finde bestehende before-Regel und aktualisiere sie
-                    for (let i = 0; i < styleSheet.cssRules.length; i++) {
-                        if (styleSheet.cssRules[i].selectorText === 'body::before') {
-                            styleSheet.cssRules[i].style.backgroundImage = `url(${albumArtUrl})`;
-                            break;
-                        }
-                    }
+                if (albumArtUrl && albumArtUrl !== lastAlbumArtUrl) {
+                    if (albumImage.src !== albumArtUrl) albumImage.src = albumArtUrl;
+                    document.getElementById('bg-layer').style.backgroundImage = `url("${albumArtUrl}")`;
+                    lastAlbumArtUrl = albumArtUrl;
                 }
 
-                if (data.is_playing) {
-                    playIcon.classList.add('hidden');
-                    pauseIcon.classList.remove('hidden');
-                } else {
-                    playIcon.classList.remove('hidden');
-                    pauseIcon.classList.add('hidden');
-                }
+                setHidden(playIcon, !!data.is_playing);
+                setHidden(pauseIcon, !data.is_playing);
 
-                currentTime.textContent = formatTime(data.progress_ms);
-                duration.textContent = formatTime(data.item.duration_ms);
+                // Sync progress state for the local tick to interpolate between polls
+                localProgress.ms = data.progress_ms;
+                localProgress.duration = data.item.duration_ms;
+                localProgress.syncedAt = Date.now();
+                localProgress.isPlaying = !!data.is_playing;
 
+                setText(duration, formatTime(data.item.duration_ms));
                 if (!isSeeking) {
+                    setText(currentTime, formatTime(data.progress_ms));
                     const percentage = (data.progress_ms / data.item.duration_ms) * 100;
-                    progressFill.style.width = percentage + '%';
+                    setWidth(progressFill, percentage.toFixed(2) + '%');
                 }
 
                 if (!isAdjustingVolume && lastSetVolume === null) {
                     const volume = data.device?.volume_percent || 50;
-                    volumeSlider.value = volume;
-                    updateVolumeSliderFill(volume);
+                    if (volumeSlider.value != volume) {
+                        volumeSlider.value = volume;
+                        updateVolumeSliderFill(volume);
+                    }
                 }
 
                 if (data.shuffle_state !== undefined) {
-                    if (data.shuffle_state) {
-                        shuffleBtn.classList.add('active');
-                    } else {
-                        shuffleBtn.classList.remove('active');
-                    }
+                    setActive(shuffleBtn, !!data.shuffle_state);
                 }
 
                 if (data.repeat_state !== undefined) {
-                    if (data.repeat_state === 'off') {
-                        repeatBtn.classList.remove('active');
-                        repeatOneIndicator.classList.add('hidden');
-                        repeatBtn.title = 'Repeat Off';
-                    } else if (data.repeat_state === 'context') {
-                        repeatBtn.classList.add('active');
-                        repeatOneIndicator.classList.add('hidden');
-                        repeatBtn.title = 'Repeat All';
-                    } else if (data.repeat_state === 'track') {
-                        repeatBtn.classList.add('active');
-                        repeatOneIndicator.classList.remove('hidden');
-                        repeatBtn.title = 'Repeat One';
-                    }
+                    const title = data.repeat_state === 'track' ? 'Repeat One'
+                        : data.repeat_state === 'context' ? 'Repeat All' : 'Repeat Off';
+                    setActive(repeatBtn, data.repeat_state !== 'off');
+                    setHidden(repeatOneIndicator, data.repeat_state !== 'track');
+                    if (repeatBtn.title !== title) repeatBtn.title = title;
                 }
             } catch (error) {
                 handlePlaybackError(error);
             }
         }
 
-        playPauseBtn.addEventListener('click', async () => {
-            if (!currentPlaybackState) return;
-            await fetch('/api/play-pause', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playing: currentPlaybackState.is_playing })
-            });
+        async function sendTransportCommand(spotifyPath, smtcAction) {
+            if (smtcFallbackActive) {
+                await fetch(`/api/system-media/${smtcAction}`, { method: 'POST' });
+                setTimeout(pollSMTCFallback, 300);
+                return;
+            }
+            await fetch(spotifyPath, { method: 'POST' });
             setTimeout(updatePlayback, 300);
+        }
+
+        playPauseBtn.addEventListener('click', () => {
+            if (!smtcFallbackActive && !currentPlaybackState) return;
+            sendTransportCommand('/api/play-pause', 'play_pause');
         });
 
-        prevBtn.addEventListener('click', async () => {
-            await fetch('/api/previous', { method: 'POST' });
-            setTimeout(updatePlayback, 500);
-        });
-
-        nextBtn.addEventListener('click', async () => {
-            await fetch('/api/next', { method: 'POST' });
-            setTimeout(updatePlayback, 500);
-        });
+        prevBtn.addEventListener('click', () => sendTransportCommand('/api/previous', 'previous'));
+        nextBtn.addEventListener('click', () => sendTransportCommand('/api/next', 'next'));
 
         shuffleBtn.addEventListener('click', async () => {
             if (!currentPlaybackState) return;
@@ -1024,27 +1395,162 @@
             setTimeout(updatePlayback, 300);
         });
 
+        likeBtn.addEventListener('click', async () => {
+            if (!currentTrackId) return;
+            const newSaved = !currentTrackSaved;
+            setLikeButtonState(newSaved); // optimistic update
+            try {
+                const response = await fetch('/api/track-saved', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: currentTrackId, saved: newSaved })
+                });
+                if (!response.ok) {
+                    setLikeButtonState(currentTrackSaved);
+                    return;
+                }
+                currentTrackSaved = newSaved;
+                showToast(newSaved ? 'Added to Liked Songs' : 'Removed from Liked Songs', newSaved ? 'added' : 'removed');
+            } catch (error) {
+                console.error('Error toggling like:', error);
+                setLikeButtonState(currentTrackSaved);
+            }
+        });
+
+        // Queue overlay
+        let activeQueueTab = 'queue';
+
+        function renderQueueTrack(track, index) {
+            const trackEl = document.createElement('div');
+            trackEl.className = 'playlist-track';
+            trackEl.innerHTML = `
+                <div class="playlist-track-number">${index + 1}</div>
+                <img class="playlist-track-image" src="${track.album?.images?.[0]?.url || ''}" alt="">
+                <div class="playlist-track-info">
+                    <div class="playlist-track-name">${track.name || 'Unknown'}</div>
+                    <div class="playlist-track-artist">${track.artists?.map(a => a.name).join(', ') || 'Unknown'}</div>
+                </div>
+            `;
+            return trackEl;
+        }
+
+        async function loadQueueList() {
+            const tracksList = document.getElementById('queue-tracks-list');
+            tracksList.innerHTML = '<div class="playlist-loading"><div class="spinner"></div><div>Loading queue...</div></div>';
+
+            try {
+                const response = await fetch('/api/queue');
+                if (!response.ok) {
+                    tracksList.innerHTML = '<div class="playlist-loading">Error loading queue</div>';
+                    return;
+                }
+                const data = await response.json();
+                const queue = data.queue || [];
+                tracksList.innerHTML = '';
+
+                if (queue.length === 0) {
+                    tracksList.innerHTML = '<div class="playlist-loading">Queue is empty</div>';
+                    return;
+                }
+
+                queue.forEach((track, idx) => {
+                    if (!track) return;
+                    tracksList.appendChild(renderQueueTrack(track, idx));
+                });
+            } catch (error) {
+                console.error('Error loading queue:', error);
+                tracksList.innerHTML = '<div class="playlist-loading">Error loading queue</div>';
+            }
+        }
+
+        async function loadHistoryList() {
+            const tracksList = document.getElementById('queue-tracks-list');
+            tracksList.innerHTML = '<div class="playlist-loading"><div class="spinner"></div><div>Loading history...</div></div>';
+
+            try {
+                const response = await fetch('/api/recently-played?limit=30');
+                if (!response.ok) {
+                    tracksList.innerHTML = '<div class="playlist-loading">Error loading history</div>';
+                    return;
+                }
+                const data = await response.json();
+                const items = data.items || [];
+                tracksList.innerHTML = '';
+
+                if (items.length === 0) {
+                    tracksList.innerHTML = '<div class="playlist-loading">No recently played tracks</div>';
+                    return;
+                }
+
+                items.forEach((item, idx) => {
+                    if (!item || !item.track) return;
+                    tracksList.appendChild(renderQueueTrack(item.track, idx));
+                });
+            } catch (error) {
+                console.error('Error loading history:', error);
+                tracksList.innerHTML = '<div class="playlist-loading">Error loading history</div>';
+            }
+        }
+
+        function switchQueueTab(tab) {
+            if (activeQueueTab === tab) return;
+            activeQueueTab = tab;
+
+            document.querySelectorAll('.queue-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+
+            if (tab === 'queue') {
+                loadQueueList();
+            } else {
+                loadHistoryList();
+            }
+        }
+
+        function openQueueOverlay() {
+            document.getElementById('queue-overlay').classList.add('active');
+            if (activeQueueTab === 'queue') {
+                loadQueueList();
+            } else {
+                loadHistoryList();
+            }
+        }
+
+        function closeQueueOverlay() {
+            document.getElementById('queue-overlay').classList.remove('active');
+        }
+
         // desc: Progress bar drag/touch handlers for seeking
         let isDraggingProgress = false;
         let seekDebounceTimer = null;
 
         async function performSeek(clientX) {
-            if (!currentPlaybackState) return;
+            // Need a known duration — from Spotify state normally, SMTC-derived
+            // during fallback (localProgress.duration is populated either way).
+            const durationMs = currentPlaybackState?.item?.duration_ms || localProgress.duration;
+            if (!durationMs) return;
 
             const rect = progressBar.getBoundingClientRect();
             const percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-            const position = Math.floor(currentPlaybackState.item.duration_ms * percentage);
+            const position = Math.floor(durationMs * percentage);
 
             clearTimeout(seekDebounceTimer);
             seekDebounceTimer = setTimeout(async () => {
-                await fetch('/api/seek', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ position })
-                });
-                setTimeout(() => {
-                    isSeeking = false;
-                }, 300);
+                if (smtcFallbackActive) {
+                    await fetch('/api/system-media/seek', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ position })
+                    });
+                    setTimeout(pollSMTCFallback, 300);
+                } else {
+                    await fetch('/api/seek', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ position })
+                    });
+                }
+                setTimeout(() => { isSeeking = false; }, 300);
             }, 100);
         }
 
@@ -1109,10 +1615,11 @@
             lastSetVolume = newVolume;
             updateVolumeSliderFill(newVolume);
 
-            // Debounce: nur alle 200ms die Lautstärke senden
+            // Debounce: only send after 200ms of no further input
             clearTimeout(volumeDebounceTimer);
             volumeDebounceTimer = setTimeout(async () => {
-                await fetch('/api/volume', {
+                const url = smtcFallbackActive ? '/api/system-volume' : '/api/volume';
+                await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ volume: newVolume })
@@ -1386,15 +1893,173 @@
             }
         }
 
-        // Initialize
-        loadAccentColor();
-        updatePlayback();
-        setInterval(updatePlayback, 2000); // Every 2 seconds
-        updateVolumeSliderFill(50);
+        // desc: Warn the user if the saved token is missing newly required scopes
+        let scopePollTimer = null;
+
+        async function checkScopeStatus() {
+            try {
+                const response = await fetch('/api/scope-status');
+                if (!response.ok) return false;
+                const data = await response.json();
+                const banner = document.getElementById('scope-banner');
+                const message = document.getElementById('scope-banner-message');
+
+                // Setup screen only when there are no credentials at all.
+                // Everything else (revoked token, missing scopes) is handled by the banner.
+                setHidden(setupScreen, data.reason !== 'not_authenticated');
+                setHidden(playerScreen, data.reason === 'not_authenticated');
+
+                const needsReauth = !data.ok;
+
+                if (needsReauth) {
+                    if (!banner.dataset.waiting) {
+                        let text;
+                        if (data.reason === 'missing_scopes') {
+                            text = `New features need additional Spotify permissions (${(data.missing || []).length} missing).`;
+                        } else if (data.reason === 'not_authenticated') {
+                            text = 'Spotify account not connected. Please authorize.';
+                        } else {
+                            text = 'Your Spotify session has expired. Please re-authorize.';
+                        }
+                        message.textContent = text;
+                    }
+                    banner.classList.remove('hidden');
+                    return false;
+                }
+
+                banner.classList.add('hidden');
+                delete banner.dataset.waiting;
+                return true;
+            } catch (error) {
+                console.error('Error checking scope status:', error);
+                return false;
+            }
+        }
+
+        // desc: After user clicks Re-authorize (opens in default browser), poll until scopes land
+        function onReauthClicked() {
+            const banner = document.getElementById('scope-banner');
+            const message = document.getElementById('scope-banner-message');
+            banner.dataset.waiting = '1';
+            message.textContent = 'Waiting for authorization in your browser...';
+
+            clearInterval(scopePollTimer);
+            scopePollTimer = setInterval(async () => {
+                const ok = await checkScopeStatus();
+                if (ok) {
+                    clearInterval(scopePollTimer);
+                    scopePollTimer = null;
+                    updatePlayback();
+                }
+            }, 2000);
+        }
+
+        // desc: Local tick interpolates progress between 2s server syncs so the
+        // counter updates every second and the progress bar moves smoothly.
+        function tickLocalProgress() {
+            if (!localProgress.duration || isSeeking) return;
+            const elapsed = localProgress.isPlaying ? (Date.now() - localProgress.syncedAt) : 0;
+            const position = Math.min(localProgress.duration, localProgress.ms + elapsed);
+            setText(currentTime, formatTime(position));
+            setWidth(progressFill, ((position / localProgress.duration) * 100).toFixed(2) + '%');
+        }
+
+        let playbackInterval = null;
+        let forceSmtc = 0;
+
+        // Init runs after DOMContentLoaded so elements declared later in <body>
+        // (rate-pill, scope-banner, queue/playlist icons & overlays) exist.
+        // Without this gate the script — embedded mid-body — runs before those
+        // nodes are parsed and any getElementById against them returns null.
+        function init() {
+            loadAccentColor();
+            checkScopeStatus();
+
+            // Manual dismiss for the rate-limit pill — hides the pill but the
+            // backoff timer and SMTC fallback continue running underneath.
+            document.getElementById('rate-pill-close').addEventListener('click', () => {
+                document.getElementById('rate-pill').classList.remove('visible');
+            });
+
+            // Debug trigger: ?force-smtc=<seconds> forces the SMTC fallback
+            forceSmtc = parseInt(new URLSearchParams(location.search).get('force-smtc') || '0', 10);
+            if (forceSmtc > 0) {
+                rateLimitedUntil = Date.now() + forceSmtc * 1000;
+                startRateLimitIndicator();
+            } else {
+                updatePlayback();
+            }
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    stopPolling();
+                } else {
+                    updatePlayback();
+                    startPolling();
+                }
+            });
+            startPolling();
+
+            // Run the 250ms tick from a Web Worker — main-thread setInterval gets
+            // throttled hard when the page is hidden / iframed offscreen (iCUE,
+            // background tabs). Workers aren't subject to that throttling.
+            try {
+                const workerSrc = `setInterval(()=>postMessage(0),250)`;
+                const tickWorker = new Worker(URL.createObjectURL(new Blob([workerSrc], { type: 'application/javascript' })));
+                tickWorker.onmessage = tickLocalProgress;
+            } catch (e) {
+                console.warn('Tick worker failed, falling back to setInterval:', e);
+                setInterval(tickLocalProgress, 250);
+            }
+            updateVolumeSliderFill(50);
+        }
+
+        function startPolling() {
+            if (playbackInterval || forceSmtc > 0) return;
+            playbackInterval = setInterval(updatePlayback, 3000);
+        }
+        function stopPolling() {
+            if (!playbackInterval) return;
+            clearInterval(playbackInterval);
+            playbackInterval = null;
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     </script>
 
+    <!-- Small rate-limit indicator; last-known playback stays visible underneath -->
+    <div id="rate-pill" class="rate-pill">
+        <span id="rate-pill-text">Rate limited</span>
+        <button id="rate-pill-close" class="rate-pill-close" aria-label="Dismiss" type="button">×</button>
+    </div>
+
+    <!-- Re-auth banner (shown when saved token is missing required scopes) -->
+    <div id="scope-banner" class="scope-banner hidden">
+        <span id="scope-banner-message">New features need additional Spotify permissions.</span>
+        <a id="scope-banner-link" href="/auth/start?force=1" target="_blank" rel="noopener" onclick="onReauthClicked()">
+            <button>Re-authorize</button>
+        </a>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast">
+        <svg id="toast-icon" viewBox="0 0 24 24"></svg>
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- Queue Icon -->
+    <div id="queue-icon" class="overlay-icon" onclick="openQueueOverlay()" title="Queue">
+        <svg viewBox="0 0 24 24">
+            <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM22 11l-6 4.5V7z"/>
+        </svg>
+    </div>
+
     <!-- Playlist Icon -->
-    <div id="playlist-icon" class="playlist-icon" onclick="openPlaylistOverlay()">
+    <div id="playlist-icon" class="overlay-icon" onclick="openPlaylistOverlay()" title="Playlist">
         <svg viewBox="0 0 24 24">
             <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
         </svg>
@@ -1418,6 +2083,24 @@
         </div>
         <div id="playlist-tracks-list" class="playlist-tracks">
             <!-- Tracks will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Queue Overlay -->
+    <div id="queue-overlay" class="playlist-overlay">
+        <div class="playlist-header">
+            <div class="queue-tabs">
+                <button class="queue-tab active" data-tab="queue" onclick="switchQueueTab('queue')">Up Next</button>
+                <button class="queue-tab" data-tab="history" onclick="switchQueueTab('history')">History</button>
+            </div>
+            <button class="playlist-close-btn" onclick="closeQueueOverlay()">
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
+        <div id="queue-tracks-list" class="playlist-tracks">
+            <!-- Queue or history tracks will be loaded here -->
         </div>
     </div>
 </body>
